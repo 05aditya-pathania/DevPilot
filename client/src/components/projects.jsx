@@ -1,31 +1,33 @@
 import { useState } from "react";
 
-function Projects({ projects, setProjects }) {
+function Projects({ projects, onCreateProject, loading }) {
   const [projectName, setProjectName] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleCreateProject(event) {
+  async function handleCreateProject(event) {
     event.preventDefault();
 
     const name = projectName.trim();
 
-    if (!name) {
+    if (!name || saving) {
       return;
     }
 
-    const newProject = {
-      id: crypto.randomUUID(),
-      name: name,
-      createdAt: new Date().toLocaleDateString(),
-    };
+    setSaving(true);
+    setError("");
 
-    setProjects((previousProjects) => [
-      ...previousProjects,
-      newProject,
-    ]);
+    try {
+      await onCreateProject(name);
 
-    setProjectName("");
-    setShowForm(false);
+      setProjectName("");
+      setShowForm(false);
+    } catch (error) {
+      setError(error.message || "Could not create project.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -36,6 +38,7 @@ function Projects({ projects, setProjects }) {
         <button
           className="primary-button"
           onClick={() => setShowForm(true)}
+          disabled={saving}
         >
           + New Project
         </button>
@@ -58,24 +61,35 @@ function Projects({ projects, setProjects }) {
             type="text"
             placeholder="Enter project name"
             value={projectName}
-            onChange={(event) =>
-              setProjectName(event.target.value)
-            }
-            maxLength={80}
+            onChange={(event) => setProjectName(event.target.value)}
+            maxLength={100}
             required
+            disabled={saving}
           />
 
+          {error && (
+            <p role="alert" className="error-message">
+              {error}
+            </p>
+          )}
+
           <div className="form-actions">
-            <button type="submit" className="primary-button">
-              Create Project
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={saving}
+            >
+              {saving ? "Creating..." : "Create Project"}
             </button>
 
             <button
               type="button"
               className="secondary-button"
+              disabled={saving}
               onClick={() => {
                 setShowForm(false);
                 setProjectName("");
+                setError("");
               }}
             >
               Cancel
@@ -87,14 +101,22 @@ function Projects({ projects, setProjects }) {
       <section className="recent-projects">
         <h2>All Projects ({projects.length})</h2>
 
-        {projects.length === 0 ? (
+        {loading ? (
+          <p>Loading projects...</p>
+        ) : projects.length === 0 ? (
           <p>No projects yet. Create your first project!</p>
         ) : (
           <div className="project-list">
             {projects.map((project) => (
               <article className="project-card" key={project.id}>
                 <h3>{project.name}</h3>
-                <p>Created: {project.createdAt}</p>
+
+                <p>
+                  Created:{" "}
+                  {new Date(project.created_at).toLocaleDateString()}
+                </p>
+
+                {project.description && <p>{project.description}</p>}
               </article>
             ))}
           </div>

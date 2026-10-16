@@ -1,52 +1,81 @@
 import { useState, useEffect } from "react";
-
 import Projects from "./components/projects";
 import Sidebar from "./components/sidebar";
 import Dashboard from "./components/dashboard";
-
 import "./App.css";
 
 function App() {
   const [activePage, setActivePage] = useState("dashboard");
   const [projects, setProjects] = useState([]);
-
   const [backendStatus, setBackendStatus] = useState("checking");
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsError, setProjectsError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
 
-    async function checkBackend() {
+    async function loadProjects() {
       try {
-        const response = await fetch(
-          "http://localhost:5000/api/health"
-        );
+        const response = await fetch("http://localhost:5000/api/projects");
 
         if (!response.ok) {
-          throw new Error("Backend health check failed");
+          throw new Error("Failed to load projects");
         }
 
         const data = await response.json();
 
+        if (!data.success) {
+          throw new Error("Could not retrieve projects");
+        }
+
         if (isMounted) {
-          setBackendStatus(
-            data.success ? "connected" : "disconnected"
-          );
+          setProjects(data.projects);
+          setBackendStatus("connected");
+          setProjectsError("");
         }
       } catch (error) {
         if (isMounted) {
           setBackendStatus("disconnected");
+          setProjectsError("Could not load projects. Please check the backend.");
         }
 
-        console.error("Backend connection error:", error);
+        console.error("Project loading error:", error);
+      } finally {
+        if (isMounted) {
+          setProjectsLoading(false);
+        }
       }
     }
 
-    checkBackend();
+    loadProjects();
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  async function handleCreateProject(name) {
+    const response = await fetch("http://localhost:5000/api/projects", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || "Failed to create project");
+    }
+
+    setProjects((previousProjects) => [
+      data.project,
+      ...previousProjects,
+    ]);
+
+    return data.project;
+  }
 
   return (
     <div className="App">
@@ -58,13 +87,16 @@ function App() {
       <div className="app-content">
         <div className={`backend-status ${backendStatus}`}>
           <span className="status-indicator"></span>
-
-          {backendStatus === "checking" && "Checking backend..."}
-
+          {backendStatus === "checking" && "Connecting to backend..."}
           {backendStatus === "connected" && "Backend Connected"}
-
           {backendStatus === "disconnected" && "Backend Disconnected"}
         </div>
+
+        {projectsError && (
+          <p role="alert" className="error-message">
+            {projectsError}
+          </p>
+        )}
 
         {activePage === "dashboard" && (
           <Dashboard projects={projects} />
@@ -73,7 +105,8 @@ function App() {
         {activePage === "projects" && (
           <Projects
             projects={projects}
-            setProjects={setProjects}
+            onCreateProject={handleCreateProject}
+            loading={projectsLoading}
           />
         )}
       </div>
