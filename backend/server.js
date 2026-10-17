@@ -78,7 +78,6 @@ function ensureInsideRoot(root, target) {
   const relative = path.relative(resolveRoot, resolveTarget);
 
   if (
-    !relative ||
     relative === ".." ||
     relative.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relative)

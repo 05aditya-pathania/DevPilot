@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function Projects({ projects, onCreateProject, loading }) {
+function Projects({ projects, onCreateProject, loading, onOpenProject }) {
   const [projectName, setProjectName] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -109,14 +109,19 @@ function Projects({ projects, onCreateProject, loading }) {
           <div className="project-list">
             {projects.map((project) => (
               <article className="project-card" key={project.id}>
-                <h3>{project.name}</h3>
-
-                <p>
-                  Created:{" "}
-                  {new Date(project.created_at).toLocaleDateString()}
-                </p>
-
-                {project.description && <p>{project.description}</p>}
+                <div className="project-card-info">
+                  <h3>{project.name}</h3>
+                  <p>Created: {new Date(project.created_at).toLocaleDateString()}</p>
+                  {project.description && <p>{project.description}</p>}
+                </div>
+                
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => onOpenProject(project)}
+                >
+                  Open Project
+                </button>
               </article>
             ))}
           </div>

@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import Projects from "./components/projects";
 import Sidebar from "./components/sidebar";
 import Dashboard from "./components/dashboard";
+import FileExplorer from "./components/fileExplorer";
 import "./App.css";
+
 
 function App() {
   const [activePage, setActivePage] = useState("dashboard");
@@ -10,6 +12,7 @@ function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState("");
+  const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -102,11 +105,19 @@ function App() {
           <Dashboard projects={projects} />
         )}
 
-        {activePage === "projects" && (
+        {activePage === "projects" && !selectedProject && (
           <Projects
             projects={projects}
             onCreateProject={handleCreateProject}
             loading={projectsLoading}
+            onOpenProject={(project)=> setSelectedProject(project)}
+          />
+        )}
+
+        {activePage === "projects" && selectedProject && (
+          <FileExplorer
+            project={selectedProject}
+            onBack={() => setSelectedProject(null)}
           />
         )}
       </div>
