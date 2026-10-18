@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import CodeEditor from "./CodeEditor.jsx";
+
+import { useCallback, useEffect, useState } from "react";
+import CodeEditor from "./codeEditor.jsx";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -8,21 +9,19 @@ function FileExplorer({ project, onBack }) {
   const [currentPath, setCurrentPath] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [fileLoading, setFileLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
   const [fileError, setFileError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
 
-  async function loadFiles(folderPath = "") {
+  const loadFiles = useCallback(async (folderPath = "") => {
     setLoading(true);
     setError("");
-    setSelectedFile(null);
-    setFileContent("");
-    setFileError("");
-    setFileLoading(false);
 
     try {
       const query = folderPath
@@ -30,65 +29,174 @@ function FileExplorer({ project, onBack }) {
         : "";
 
       const response = await fetch(
-        `${API_URL}/projects/${project.id}/files${query}`
+        `${API_URL}/projects/${project.id}/files${query}`,
+        { cache: "no-store" }
       );
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to load project files"
-        );
+        throw new Error(data.message || "Failed to load project files");
       }
 
-      setFiles(data.files);
+      setFiles(data.files || []);
       setCurrentPath(folderPath);
     } catch (err) {
-      setFiles([]);
+      console.error("[DevPilot] Load files failed:", err);
       setError(err.message || "Could not load project files");
+      setFiles([]);
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    loadFiles();
   }, [project.id]);
 
+  useEffect(() => {
+    setSelectedFile(null);
+    setFileContent("");
+    setDirty(false);
+    setFileError("");
+    setSaveMessage("");
+    setSaveError("");
+    loadFiles("");
+  }, [project.id, loadFiles]);
+
   async function handleFileClick(file) {
+    if (saving || fileLoading) return;
+
+    if (dirty && !window.confirm("Discard unsaved changes?")) {
+      return;
+    }
+
     if (file.type === "directory") {
+      setSelectedFile(null);
+      setFileContent("");
+      setDirty(false);
+      setFileError("");
+      setSaveMessage("");
+      setSaveError("");
       await loadFiles(file.path);
       return;
     }
 
     setSelectedFile(file);
     setFileContent("");
-    setFileError("");
     setFileLoading(true);
+    setDirty(false);
+    setFileError("");
+    setSaveMessage("");
+    setSaveError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/projects/${project.id}/file?path=${encodeURIComponent(
-          file.path
-        )}`
-      );
+      const url =
+        `${API_URL}/projects/${project.id}/file?path=` +
+        encodeURIComponent(file.path);
 
+      console.log("[DevPilot] Opening file:", url);
+
+      const response = await fetch(url, { cache: "no-store" });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to open file"
-        );
+        throw new Error(data.message || "Failed to open file");
       }
 
       setFileContent(data.content ?? "");
+      console.log("[DevPilot] File opened:", file.path);
     } catch (err) {
-      setFileError(
-        err.message || "Could not open this file"
-      );
+      console.error("[DevPilot] Open file failed:", err);
+      setFileError(err.message || "Could not open this file");
     } finally {
       setFileLoading(false);
     }
+  }
+
+  async function handleSave() {
+    console.log("[DevPilot] Save handler entered", {
+      projectId: project.id,
+      filePath: selectedFile?.path,
+      saving,
+      dirty,
+    });
+
+    if (!selectedFile) {
+      setSaveError("Select a file before saving.");
+      return;
+    }
+
+    if (saving) return;
+
+    if (!dirty) {
+      setSaveMessage("No unsaved changes.");
+      return;
+    }
+
+    setSaving(true);
+    setSaveMessage("");
+    setSaveError("");
+
+    const url =
+      `${API_URL}/projects/${project.id}/file?path=` +
+      encodeURIComponent(selectedFile.path);
+
+    try {
+      console.log("[DevPilot] Sending POST:", url);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: fileContent,
+        }),
+      });
+
+      const responseText = await response.text();
+      let data;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          `Invalid server response (HTTP ${response.status})`
+        );
+      }
+
+      console.log("[DevPilot] Save response:", {
+        status: response.status,
+        data,
+      });
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || `Save failed (HTTP ${response.status})`
+        );
+      }
+
+      setDirty(false);
+      setSaveMessage("File saved successfully!");
+      console.log("[DevPilot] Save successful:", selectedFile.path);
+
+      // Refresh file list to update file sizes.
+      await loadFiles(currentPath);
+    } catch (err) {
+      console.error("[DevPilot] Save failed:", err);
+      setSaveError(err.message || "Could not save file");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleEditorChange(value) {
+    setFileContent(value);
+    setDirty(true);
+    setSaveMessage("");
+    setSaveError("");
+  }
+
+  function handleSaveClick() {
+    console.log("[DevPilot] Save File button clicked");
+    void handleSave();
   }
 
   async function handleUpload(event) {
@@ -103,11 +211,23 @@ function FileExplorer({ project, onBack }) {
       return;
     }
 
+    if (saving || uploading) {
+      input.value = "";
+      return;
+    }
+
+    if (dirty && !window.confirm("Discard unsaved changes before uploading?")) {
+      input.value = "";
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
 
     setUploading(true);
     setError("");
+    setSaveMessage("");
+    setSaveError("");
 
     try {
       const response = await fetch(
@@ -121,20 +241,39 @@ function FileExplorer({ project, onBack }) {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "ZIP upload failed"
-        );
+        throw new Error(data.message || "ZIP upload failed");
       }
+
+      setSelectedFile(null);
+      setFileContent("");
+      setDirty(false);
+      setFileError("");
 
       await loadFiles("");
     } catch (err) {
-      setError(
-        err.message || "Could not upload ZIP"
-      );
+      console.error("[DevPilot] ZIP upload failed:", err);
+      setError(err.message || "Could not upload ZIP");
     } finally {
       setUploading(false);
       input.value = "";
     }
+  }
+
+  function navigateToFolder(folderPath) {
+    if (saving || fileLoading) return;
+
+    if (dirty && !window.confirm("Discard unsaved changes?")) {
+      return;
+    }
+
+    setSelectedFile(null);
+    setFileContent("");
+    setDirty(false);
+    setFileError("");
+    setSaveMessage("");
+    setSaveError("");
+
+    void loadFiles(folderPath);
   }
 
   function goToParent() {
@@ -142,8 +281,17 @@ function FileExplorer({ project, onBack }) {
 
     const parts = currentPath.split("/");
     parts.pop();
+    navigateToFolder(parts.join("/"));
+  }
 
-    loadFiles(parts.join("/"));
+  function handleBack() {
+    if (saving) return;
+
+    if (dirty && !window.confirm("Discard unsaved changes?")) {
+      return;
+    }
+
+    onBack();
   }
 
   return (
@@ -157,7 +305,8 @@ function FileExplorer({ project, onBack }) {
         <button
           type="button"
           className="secondary-button"
-          onClick={onBack}
+          onClick={handleBack}
+          disabled={saving}
         >
           ← Back to Projects
         </button>
@@ -169,8 +318,8 @@ function FileExplorer({ project, onBack }) {
             <button
               type="button"
               className="file-breadcrumb-button"
-              onClick={() => loadFiles("")}
-              disabled={loading}
+              onClick={() => navigateToFolder("")}
+              disabled={loading || saving}
             >
               📁 Root
             </button>
@@ -184,7 +333,7 @@ function FileExplorer({ project, onBack }) {
                 type="button"
                 className="secondary-button"
                 onClick={goToParent}
-                disabled={loading}
+                disabled={loading || saving}
               >
                 ↑ Parent Folder
               </button>
@@ -201,7 +350,7 @@ function FileExplorer({ project, onBack }) {
                 type="file"
                 accept=".zip,application/zip"
                 onChange={handleUpload}
-                disabled={uploading}
+                disabled={uploading || saving}
                 hidden
               />
             </label>
@@ -219,9 +368,7 @@ function FileExplorer({ project, onBack }) {
             <h3>Project Files</h3>
 
             {loading ? (
-              <p className="file-empty-state">
-                Loading files...
-              </p>
+              <p className="file-empty-state">Loading files...</p>
             ) : files.length === 0 ? (
               <p className="file-empty-state">
                 No files found. Upload a ZIP to get started.
@@ -233,20 +380,16 @@ function FileExplorer({ project, onBack }) {
                     type="button"
                     key={file.path}
                     className={`file-item ${
-                      selectedFile?.path === file.path
-                        ? "selected"
-                        : ""
+                      selectedFile?.path === file.path ? "selected" : ""
                     }`}
                     onClick={() => handleFileClick(file)}
-                    disabled={loading}
+                    disabled={loading || fileLoading || saving}
                   >
                     <span className="file-item-icon">
                       {file.type === "directory" ? "📁" : "📄"}
                     </span>
 
-                    <span className="file-item-name">
-                      {file.name}
-                    </span>
+                    <span className="file-item-name">{file.name}</span>
 
                     {file.type === "file" && (
                       <span className="file-item-size">
@@ -273,21 +416,17 @@ function FileExplorer({ project, onBack }) {
                 </p>
               </>
             ) : fileLoading ? (
-              <>
-                <header className="code-panel-header">
-                  <h3>{selectedFile?.name || "Code Editor"}</h3>
-                </header>
-
-                <p className="file-empty-state">
-                  Loading file content...
-                </p>
-              </>
+              <p className="file-empty-state">Loading file content...</p>
             ) : selectedFile ? (
               <CodeEditor
-                key={selectedFile.path}
                 file={selectedFile}
                 content={fileContent}
-                onChange={setFileContent}
+                onChange={handleEditorChange}
+                onSave={handleSaveClick}
+                saving={saving}
+                dirty={dirty}
+                saveMessage={saveMessage}
+                saveError={saveError}
               />
             ) : (
               <>

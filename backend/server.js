@@ -716,6 +716,97 @@ app.get("/api/projects/:id/file", async (req, res) => {
   }
 });
 
+// Save edited file content to an uploaded project.
+app.post("/api/projects/:id/file", async (req, res) => {
+  try {
+    const projectId = Number(req.params.id);
+    const { content } = req.body;
+
+    // Validate project ID.
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid project ID",
+      });
+    }
+
+    // Validate file content.
+    if (typeof content !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "File content must be a string",
+      });
+    }
+
+    // Limit saved content to 1 MB.
+    if (Buffer.byteLength(content, "utf8") > MAX_READ_SIZE) {
+      return res.status(413).json({
+        success: false,
+        message: "File is too large to save (1 MB maximum)",
+      });
+    }
+
+    // Ensure the project has uploaded files.
+    const project = await getUploadedProject(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project or uploaded files not found",
+      });
+    }
+
+    // Validate the requested relative file path.
+    const parts = validateRelativePath(req.query.path);
+
+    const filePath = ensureInsideRoot(
+      project.root,
+      path.resolve(project.root, ...parts)
+    );
+
+    // Resolve the actual path to prevent directory traversal.
+    const realFilePath = await fs.promises.realpath(filePath);
+
+    ensureInsideRoot(project.root, realFilePath);
+
+    const stat = await fs.promises.lstat(realFilePath);
+
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      return res.status(400).json({
+        success: false,
+        message: "Requested path is not a regular file",
+      });
+    }
+
+    // Recheck the size of the existing file.
+    if (stat.size > MAX_READ_SIZE) {
+      return res.status(413).json({
+        success: false,
+        message: "File is too large to save (1 MB maximum)",
+      });
+    }
+
+    // Save only the existing file; do not create arbitrary paths.
+    await fs.promises.writeFile(realFilePath, content, {
+      encoding: "utf8",
+    });
+
+    return res.json({
+      success: true,
+      message: "File saved successfully",
+      projectId,
+      path: req.query.path,
+    });
+  } catch (error) {
+    console.error("Save file error:", error.message);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to save file",
+    });
+  }
+});
+
 // Handle unexpected errors.
 app.use((error, req, res, next) => {
   if (res.headersSent) {

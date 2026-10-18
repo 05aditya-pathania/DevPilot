@@ -1,9 +1,23 @@
-import { useMemo } from "react";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 
-function CodeEditor({ file, content, onChange, saving = false }) {
-  const language = useMemo(() => {
-    const extension = file?.name?.split(".").pop()?.toLowerCase();
+function CodeEditor({
+  file,
+  content,
+  onChange,
+  onSave,
+  saving = false,
+  saveMessage = "",
+  saveError = "",
+  dirty = false,
+}) {
+  const [editorReady, setEditorReady] = useState(false);
+  const editorRef = useRef(null);
+  const monacoRef = useRef(null);
+
+  const getLanguage = useCallback((filename = "") => {
+    const extension = filename.split(".").pop()?.toLowerCase();
 
     const languages = {
       js: "javascript",
@@ -15,13 +29,10 @@ function CodeEditor({ file, content, onChange, saving = false }) {
       py: "python",
       html: "html",
       css: "css",
-      scss: "scss",
       json: "json",
       java: "java",
       c: "c",
-      h: "c",
       cpp: "cpp",
-      hpp: "cpp",
       cs: "csharp",
       php: "php",
       go: "go",
@@ -32,16 +43,66 @@ function CodeEditor({ file, content, onChange, saving = false }) {
       sh: "shell",
       yml: "yaml",
       yaml: "yaml",
-      txt: "plaintext",
     };
 
     return languages[extension] || "plaintext";
-  }, [file?.name]);
+  }, []);
+
+  function handleEditorMount(editor, monaco) {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+    setEditorReady(true);
+
+    console.log("[DevPilot] CodeEditor mounted:", file?.path);
+
+    editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+      () => {
+        console.log("[DevPilot] Ctrl+S pressed");
+        handleSaveClick();
+      }
+    );
+  }
+
+  useEffect(() => {
+    return () => {
+      editorRef.current = null;
+      monacoRef.current = null;
+    };
+  }, []);
+
+  function handleSaveClick() {
+    console.log("[DevPilot] Save button clicked", {
+      file: file?.path,
+      dirty,
+      saving,
+      onSaveType: typeof onSave,
+    });
+
+    if (typeof onSave !== "function") {
+      console.error("[DevPilot] onSave callback is missing");
+      window.alert("Save failed: onSave callback is missing.");
+      return;
+    }
+
+    if (saving) {
+      console.warn("[DevPilot] Save is already in progress");
+      return;
+    }
+
+    if (!dirty) {
+      console.warn("[DevPilot] No unsaved changes");
+      window.alert("No unsaved changes detected.");
+      return;
+    }
+
+    onSave();
+  }
 
   if (!file) {
     return (
       <div className="editor-empty">
-        <div className="editor-empty-icon">&lt;/&gt;</div>
+        <div className="editor-empty-icon">{"</>"}</div>
         <h3>No file selected</h3>
         <p>Select a project file to start editing.</p>
       </div>
@@ -52,7 +113,7 @@ function CodeEditor({ file, content, onChange, saving = false }) {
     <section className="code-editor">
       <header className="code-editor-toolbar">
         <div className="code-editor-file">
-          <span className="code-editor-file-icon">&lt;/&gt;</span>
+          <span className="code-editor-file-icon">{"</>"}</span>
 
           <div>
             <h3>{file.name}</h3>
@@ -61,47 +122,77 @@ function CodeEditor({ file, content, onChange, saving = false }) {
         </div>
 
         <div className="code-editor-actions">
-          <span className="editor-language">{language}</span>
+          <span className="editor-language">
+            {getLanguage(file.name).toUpperCase()}
+          </span>
+
+          {dirty && !saving && (
+            <span className="editor-saving">Unsaved changes</span>
+          )}
 
           {saving && (
             <span className="editor-saving">Saving...</span>
           )}
+
+          <button
+            type="button"
+            className="primary-button"
+            onClick={handleSaveClick}
+            disabled={saving}
+            title="Save file (Ctrl+S)"
+          >
+            {saving ? "Saving..." : "Save File"}
+          </button>
         </div>
       </header>
+
+      {saveMessage && (
+        <p className="save-success" role="status">
+          {saveMessage}
+        </p>
+      )}
+
+      {saveError && (
+        <p className="error-message" role="alert">
+          {saveError}
+        </p>
+      )}
 
       <div className="code-editor-body">
         <Editor
           height="480px"
-          language={language}
+          language={getLanguage(file.name)}
           theme="vs-dark"
-          value={content ?? ""}
+          value={content}
           onChange={(value) => onChange?.(value ?? "")}
-          loading="Loading Monaco Editor..."
+          onMount={handleEditorMount}
+          loading="Loading editor..."
           options={{
             automaticLayout: true,
             minimap: { enabled: false },
-            fontSize: 14,
+            fontSize: 13,
             lineHeight: 22,
             fontFamily: "Consolas, 'Courier New', monospace",
-            wordWrap: "on",
+            wordWrap: "off",
             scrollBeyondLastLine: false,
             renderLineHighlight: "all",
             smoothScrolling: true,
             cursorBlinking: "smooth",
-            lineNumbers: "on",
-            folding: true,
-            readOnly: false,
-            tabSize: 2,
-            padding: {
-              top: 16,
-              bottom: 16,
-            },
+            padding: { top: 16, bottom: 16 },
             scrollbar: {
               verticalScrollbarSize: 8,
               horizontalScrollbarSize: 8,
             },
           }}
         />
+      </div>
+
+      <div className="editor-debug-status">
+        {!editorReady
+          ? "Initializing editor..."
+          : dirty
+            ? "Unsaved changes"
+            : "All changes saved"}
       </div>
     </section>
   );
