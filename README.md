@@ -1,198 +1,124 @@
-DevPilot 🚀
+# DevPilot 🚀
 
-An AI-powered code analysis and debugging platform — currently under development.
+**An AI-powered code analysis and debugging platform — currently under development.**
 
-DevPilot is being built to help developers inspect their projects, understand code issues, and review potential fixes from one workspace. The planned workflow is to upload a project ZIP, inspect its file structure, analyze supported code, and receive clear explanations and suggested fixes.
+DevPilot aims to help developers inspect projects, understand code issues, and review potential fixes from one workspace.
 
-Project status: Early development / prototype. The current implementation includes a React + Vite frontend with a basic dashboard and projects UI, plus a Node.js + Express backend with a health-check endpoint. ZIP processing, persistent storage, code analysis, AI features, authentication, and deployment are planned—not implemented yet.
+The current prototype supports project management, ZIP uploads, project file browsing, and editing and saving source files through a browser-based code editor. AI-powered analysis, explanations, and suggested fixes remain part of the roadmap.
 
-✨ Planned Features
+> **Project status:** Active development / prototype. This project is not production-ready.
 
-Project management — create and view projects from a dashboard.
+---
 
-ZIP upload — upload a project archive with file validation.
+## ✨ Implemented Features
 
-Project file explorer — browse folders and files from an uploaded project.
+### Project Management
+- Create projects through the frontend.
+- Retrieve and display projects using the backend API.
+- Store project records in PostgreSQL.
 
-Code analysis — identify supported errors and warnings without automatically running uploaded code.
+### ZIP Upload and Extraction
+- Upload ZIP archives to a project.
+- Validate uploaded file types and enforce upload limits.
+- Extract project files into project-specific directories.
+- Apply archive-entry limits and extraction safety checks.
 
-Analysis reports — review findings by file and keep a history of analyses.
+### Project File Explorer
+- Browse files and folders inside an uploaded project.
+- Navigate between directories.
+- View file contents in the browser.
+- Display file sizes and selected-file information.
 
-AI-assisted explanations — understand detected issues in plain language.
+### Code Editor
+- Edit project files using Monaco Editor.
+- Save changes through the backend API.
+- Use `Ctrl + S` / `Cmd + S` to trigger saving.
+- Display save status and errors.
+- Preserve saved file changes after refreshing the browser.
 
-Suggested fixes — review proposed code changes and diffs before applying them.
+### Backend and Database
+- Node.js and Express API.
+- PostgreSQL database integration.
+- Project CRUD API functionality.
+- Project file listing and file-content endpoints.
+- File-save endpoint with project-path validation.
+- Backend health-check endpoints.
 
-Secure workflow — validate uploads, limit archive size, and protect against unsafe archive paths.
+### Frontend
+- React + Vite application.
+- Project dashboard and file explorer.
+- Frontend-to-backend API integration.
+- Production build verified locally.
 
-Features above are part of the roadmap and may not be available in the current prototype.
+---
 
-🧰 Tech Stack
+## 🗺️ Planned Features
 
-Currently used
+The following features are not yet implemented as complete product functionality:
 
-React
+- Static code analysis for supported languages.
+- Detection of code issues, errors, and warnings.
+- Analysis reports and history.
+- AI-assisted explanations.
+- AI-generated fix suggestions and code diffs.
+- Review and approval workflow for suggested changes.
+- User authentication and authorization.
+- Automated tests and expanded security testing.
+- Production deployment.
+- React Native / Expo mobile applications for Android and iOS.
 
-Vite
+These features will be implemented and documented as development progresses.
 
-CSS
+---
 
-Node.js
+## 🧰 Tech Stack
 
-Express
+### Currently Used
+- React
+- Vite
+- JavaScript
+- CSS
+- Monaco Editor
+- Node.js
+- Express
+- PostgreSQL
+- `pg`
+- CORS
+- dotenv
+- Multer
+- yauzl
 
-CORS
+### Planned
+- Static-analysis tools for supported programming languages.
+- An AI API or model for explanations and suggested fixes.
+- Automated testing infrastructure.
+- Production hosting and deployment services.
+- React Native and Expo for mobile applications.
 
-dotenv
+The technology stack may evolve as development progresses.
 
-Planned
+---
 
-PostgreSQL for persistent project and analysis data.
+## 📁 Project Structure
 
-JavaScript/TypeScript static-analysis tools.
-
-An AI API for explanations and suggested fixes.
-
-Hosting for the frontend, backend, and database.
-
-The planned stack may change as development progresses.
-
-📁 Project Structure
-
+```text
 DevPilot/
-├── client/                 # React + Vite frontend
+├── client/
 │   ├── src/
-│   │   ├── components/     # Dashboard, sidebar, projects UI
+│   │   ├── components/
+│   │   │   ├── FileExplorer.jsx
+│   │   │   └── codeEditor.jsx
 │   │   ├── App.jsx
 │   │   └── App.css
-│   └── package.json
+│   ├── package.json
+│   └── vite.config.js
 │
-└── backend/                # Node.js + Express API
-    ├── server.js
-    └── package.json
-
-This is the intended structure based on the current project setup. Your local files may differ as development continues.
-
-⚙️ Getting Started
-
-Prerequisites
-
-Node.js and npm installed
-
-Git (optional, for version control)
-
-1. Clone the repository
-
-git clone <your-repository-url>
-cd DevPilot
-
-Replace <your-repository-url> with the URL of your GitHub repository.
-
-2. Start the backend
-
-Open a terminal in the project root:
-
-cd backend
-npm install
-node server.js
-
-The backend is expected to run at:
-
-http://localhost:5000
-
-Available endpoints in the current prototype:
-
-Method
-
-Endpoint
-
-Purpose
-
-GET
-
-/
-
-Basic API welcome response
-
-GET
-
-/api/health
-
-Backend health check
-
-Example health-check response:
-
-{
-  "success": true,
-  "message": "DevPilot backend is running",
-  "status": "healthy"
-}
-
-3. Start the frontend
-
-Open a second terminal:
-
-cd client
-npm install
-npm run dev
-
-Vite usually serves the development frontend at:
-
-http://localhost:5173
-
-Keep both terminals running while developing locally.
-
-🔌 Frontend–Backend Connection
-
-The current frontend checks the backend health endpoint at:
-
-http://localhost:5000/api/health
-
-The backend's CORS configuration currently allows the local Vite origin:
-
-http://localhost:5173
-
-If your local ports differ, update the configuration accordingly. Production URLs and environment-based configuration still need to be implemented.
-
-🗺️ Roadmap
-
-Set up the React + Vite frontend
-
-Build the initial dashboard, sidebar, and projects UI
-
-Set up the Express backend
-
-Add root and health-check endpoints
-
-Stabilize and verify the responsive frontend layout
-
-Build project CRUD API endpoints
-
-Add PostgreSQL persistence
-
-Implement secure ZIP upload and extraction
-
-Display an uploaded project's file tree
-
-Add JavaScript/TypeScript code analysis
-
-Build analysis reports and history
-
-Add AI explanations and suggested fixes
-
-Add authentication and additional security controls
-
-Test and deploy the application
-
-🔐 Security Notes
-
-DevPilot is intended to inspect uploaded source code, not execute it automatically. Before accepting real user uploads, the backend must implement file-size limits, archive validation, safe extraction, path-traversal protection, appropriate storage controls, and robust error handling.
-
-Never commit API keys, passwords, database credentials, or other secrets. Use environment variables for local configuration, and configure production secrets through the hosting provider.
-
-🤝 Contributing
-
-Contributions, suggestions, and issue reports are welcome. Since this project is in an early stage, please open an issue to discuss larger changes before submitting a pull request.
-
-📄 License
-
-No license has been selected yet. Until a license is added, the repository should not be assumed to grant permission to reuse, modify, or distribute the code.
+├── backend/
+│   ├── server.js
+│   ├── db.js
+│   ├── package.json
+│   ├── uploads/
+│   └── project-files/
+│
+├── .gitignore
+└── README.md

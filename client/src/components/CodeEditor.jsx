@@ -53,12 +53,9 @@ function CodeEditor({
     monacoRef.current = monaco;
     setEditorReady(true);
 
-    console.log("[DevPilot] CodeEditor mounted:", file?.path);
-
     editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       () => {
-        console.log("[DevPilot] Ctrl+S pressed");
         handleSaveClick();
       }
     );
@@ -72,32 +69,18 @@ function CodeEditor({
   }, []);
 
   function handleSaveClick() {
-    console.log("[DevPilot] Save button clicked", {
-      file: file?.path,
-      dirty,
-      saving,
-      onSaveType: typeof onSave,
-    });
-
-    if (typeof onSave !== "function") {
-      console.error("[DevPilot] onSave callback is missing");
-      window.alert("Save failed: onSave callback is missing.");
+    if (typeof onSave !== "function"){
+      console.error("[DevPilot] onSave callback is unavailable");
       return;
     }
 
-    if (saving) {
-      console.warn("[DevPilot] Save is already in progress");
-      return;
-    }
-
-    if (!dirty) {
-      console.warn("[DevPilot] No unsaved changes");
-      window.alert("No unsaved changes detected.");
+    if (saving || !dirty){
       return;
     }
 
     onSave();
   }
+
 
   if (!file) {
     return (
