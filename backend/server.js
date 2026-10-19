@@ -21,6 +21,27 @@ const MAX_EXTRACTED_SIZE = 100 * 1024 * 1024;
 const MAX_COMPRESSION_RATIO = 100;
 const MAX_READ_SIZE = 1024 * 1024;
 
+// Code analysis limits.
+const MAX_ANALYSIS_FILES = 300;
+const MAX_ANALYSIS_FILE_SIZE = 1024 * 1024;
+const MAX_ANALYSIS_TOTAL_SIZE = 10 * 1024 * 1024;
+
+const ANALYZABLE_EXTENSIONS = new Set([
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+]);
+
+const IGNORED_DIRECTORIES = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "coverage",
+  ".next",
+]);
+
 fs.mkdirSync(uploadDir, { recursive: true });
 fs.mkdirSync(projectsDir, { recursive: true });
 
@@ -42,7 +63,7 @@ const upload = multer({
   },
 });
 
-// Validate a relative path supplied by a client.
+// Validate a relative path supplied by the client.
 function validateRelativePath(filePath) {
   if (
     typeof filePath !== "string" ||
@@ -88,6 +109,232 @@ function ensureInsideRoot(root, target) {
   return target;
 }
 
+// Analyze JavaScript source using lightweight heuristics.
+// This function never executes uploaded code.
+function analyzeJavaScript(content, relativePath) {
+  const findings = [];
+  const lines = content.split(/\r?\n/);
+
+  const checks = [
+    {
+      pattern: /\bconsole\s*\.\s*log\s*\(/g,
+      severity: "info",
+      rule: "debug-console-log",
+      message:
+        "console.log() found; remove or replace debug logging before production.",
+    },
+    {
+      pattern: /\bdebugger\s*;?/g,
+      severity: "warning",
+      rule: "debugger-statement",
+      message:
+        "debugger statement found; remove it before production.",
+    },
+    {
+      pattern: /\beval\s*\(/g,
+      severity: "warning",
+      rule: "eval-usage",
+      message:
+        "eval() can execute dynamically constructed code and may create security risks.",
+    },
+    {
+      pattern: /\bvar\s+[A-Za-z_$][\w$]*/g,
+      severity: "info",
+      rule: "var-declaration",
+      message:
+        "var declaration found; consider let or const for block-scoped variables.",
+    },
+  ];
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+
+    for (const check of checks) {
+      check.pattern.lastIndex = 0;
+
+      let match;
+
+      while ((match = check.pattern.exec(line)) !== null) {
+        findings.push({
+          file: relativePath,
+          line: lineIndex + 1,
+          column: match.index + 1,
+          severity: check.severity,
+          rule: check.rule,
+          message: check.message,
+          excerpt: line.trim().slice(0, 240),
+        });
+
+        if (match[0].length === 0) {
+          check.pattern.lastIndex++;
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
+// Scan uploaded project files without executing them.
+async function analyzeProjectFiles(projectRoot) {
+  const findings = [];
+  const errors = [];
+  const scannedFiles = [];
+
+  let filesSkipped = 0;
+  let totalBytesScanned = 0;
+  let fileLimitReached = false;
+
+  const rootStat = await fs.promises.lstat(projectRoot);
+
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+    throw new Error("Invalid project directory");
+  }
+
+  async function walk(directory) {
+    if (
+      scannedFiles.length >= MAX_ANALYSIS_FILES ||
+      totalBytesScanned >= MAX_ANALYSIS_TOTAL_SIZE
+    ) {
+      fileLimitReached = true;
+      return;
+    }
+
+    let entries;
+
+    try {
+      entries = await fs.promises.readdir(directory, {
+        withFileTypes: true,
+      });
+    } catch (error) {
+      errors.push({
+        path:
+          path.relative(projectRoot, directory)
+            .split(path.sep)
+            .join("/") || ".",
+        message: `Unable to read directory: ${error.message}`,
+      });
+
+      return;
+    }
+
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+      if (
+        scannedFiles.length >= MAX_ANALYSIS_FILES ||
+        totalBytesScanned >= MAX_ANALYSIS_TOTAL_SIZE
+      ) {
+        fileLimitReached = true;
+        return;
+      }
+
+      if (entry.name.startsWith(".")) {
+        filesSkipped++;
+        continue;
+      }
+
+      const absolutePath = path.join(directory, entry.name);
+
+      const relativePath = path
+        .relative(projectRoot, absolutePath)
+        .split(path.sep)
+        .join("/");
+
+      if (entry.isSymbolicLink()) {
+        filesSkipped++;
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        if (IGNORED_DIRECTORIES.has(entry.name)) {
+          filesSkipped++;
+          continue;
+        }
+
+        await walk(absolutePath);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        filesSkipped++;
+        continue;
+      }
+
+      const extension = path.extname(entry.name).toLowerCase();
+
+      if (!ANALYZABLE_EXTENSIONS.has(extension)) {
+        filesSkipped++;
+        continue;
+      }
+
+      try {
+        const realFilePath = await fs.promises.realpath(absolutePath);
+
+        ensureInsideRoot(projectRoot, realFilePath);
+
+        const stat = await fs.promises.lstat(realFilePath);
+
+        if (!stat.isFile() || stat.isSymbolicLink()) {
+          filesSkipped++;
+          continue;
+        }
+
+        if (stat.size > MAX_ANALYSIS_FILE_SIZE) {
+          filesSkipped++;
+
+          errors.push({
+            path: relativePath,
+            message: "File exceeds the 1 MB analysis limit.",
+          });
+
+          continue;
+        }
+
+        if (
+          totalBytesScanned + stat.size >
+          MAX_ANALYSIS_TOTAL_SIZE
+        ) {
+          fileLimitReached = true;
+          return;
+        }
+
+        const content = await fs.promises.readFile(
+          realFilePath,
+          "utf8"
+        );
+
+        totalBytesScanned += stat.size;
+
+        scannedFiles.push({
+          path: relativePath,
+          size: stat.size,
+        });
+
+        findings.push(
+          ...analyzeJavaScript(content, relativePath)
+        );
+      } catch (error) {
+        errors.push({
+          path: relativePath,
+          message: error.message || "Unable to analyze file.",
+        });
+      }
+    }
+  }
+
+  await walk(projectRoot);
+
+  return {
+    filesScanned: scannedFiles.length,
+    filesSkipped,
+    totalBytesScanned,
+    fileLimitReached,
+    scannedFiles,
+    findings,
+    errors,
+  };
+}
 // Safely extract a ZIP archive.
 function extractZipSafely(zipPath, destination) {
   return new Promise((resolve, reject) => {
@@ -130,7 +377,6 @@ function extractZipSafely(zipPath, destination) {
         }
 
         zipfile = archive;
-
         zipfile.on("error", fail);
 
         zipfile.on("end", () => {
@@ -298,7 +544,8 @@ function extractZipSafely(zipPath, destination) {
   });
 }
 
-// Get a project and its saved upload path.
+// Retrieve a project only when it has an uploaded directory
+// inside the permitted project storage directory.
 async function getUploadedProject(projectId) {
   if (!Number.isSafeInteger(projectId) || projectId <= 0) {
     return null;
@@ -349,7 +596,6 @@ async function getUploadedProject(projectId) {
     root: realRoot,
   };
 }
-
 // Root endpoint.
 app.get("/", (req, res) => {
   res.json({
@@ -381,7 +627,10 @@ app.get("/api/db-health", async (req, res) => {
       time: result.rows[0].database_time,
     });
   } catch (error) {
-    console.error("Database connection error:", error.message);
+    console.error(
+      "Database connection error:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,
@@ -405,7 +654,10 @@ app.get("/api/projects", async (req, res) => {
       projects: result.rows,
     });
   } catch (error) {
-    console.error("Fetch projects error:", error.message);
+    console.error(
+      "Fetch projects error:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,
@@ -454,7 +706,10 @@ app.post("/api/projects", async (req, res) => {
       project: result.rows[0],
     });
   } catch (error) {
-    console.error("Create project error:", error.message);
+    console.error(
+      "Create project error:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,
@@ -462,7 +717,6 @@ app.post("/api/projects", async (req, res) => {
     });
   }
 });
-
 // Upload and extract a ZIP for an existing project.
 app.post("/api/projects/:id/upload", (req, res) => {
   upload.single("file")(req, res, async (uploadError) => {
@@ -518,7 +772,6 @@ app.post("/api/projects/:id/upload", (req, res) => {
 
       await extractZipSafely(req.file.path, destination);
 
-      // Save the upload path and status only after extraction succeeds.
       await pool.query(
         `UPDATE projects
          SET upload_path = $1,
@@ -527,7 +780,7 @@ app.post("/api/projects/:id/upload", (req, res) => {
         [destination, projectId]
       );
 
-      // Remove the old extracted folder after the new upload is saved.
+      // Remove the previous upload only after the new upload succeeds.
       if (
         previousPath &&
         path.dirname(path.resolve(previousPath)) ===
@@ -567,6 +820,66 @@ app.post("/api/projects/:id/upload", (req, res) => {
   });
 });
 
+// Analyze an uploaded project.
+app.post("/api/projects/:id/analyze", async (req, res) => {
+  try {
+    const projectId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid project ID",
+      });
+    }
+
+    const project = await getUploadedProject(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project or uploaded files not found",
+      });
+    }
+
+    const result = await analyzeProjectFiles(project.root);
+
+    const summary = {
+      filesScanned: result.filesScanned,
+      filesSkipped: result.filesSkipped,
+      totalBytesScanned: result.totalBytesScanned,
+      findings: result.findings.length,
+      errors: result.findings.filter(
+        (item) => item.severity === "error"
+      ).length,
+      warnings: result.findings.filter(
+        (item) => item.severity === "warning"
+      ).length,
+      info: result.findings.filter(
+        (item) => item.severity === "info"
+      ).length,
+      fileLimitReached: result.fileLimitReached,
+    };
+
+    return res.json({
+      success: true,
+      projectId,
+      projectName: project.name,
+      summary,
+      scannedFiles: result.scannedFiles,
+      findings: result.findings,
+      analysisErrors: result.errors,
+      note:
+        "This is heuristic static analysis, not a complete security audit. Findings may include false positives.",
+    });
+  } catch (error) {
+    console.error("Project analysis error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to analyze project",
+    });
+  }
+});
 // List files and directories in an uploaded project.
 app.get("/api/projects/:id/files", async (req, res) => {
   try {
@@ -698,7 +1011,10 @@ app.get("/api/projects/:id/file", async (req, res) => {
       });
     }
 
-    const content = await fs.promises.readFile(realFilePath, "utf8");
+    const content = await fs.promises.readFile(
+      realFilePath,
+      "utf8"
+    );
 
     res.json({
       success: true,
@@ -722,7 +1038,6 @@ app.post("/api/projects/:id/file", async (req, res) => {
     const projectId = Number(req.params.id);
     const { content } = req.body;
 
-    // Validate project ID.
     if (!Number.isSafeInteger(projectId) || projectId <= 0) {
       return res.status(400).json({
         success: false,
@@ -730,7 +1045,6 @@ app.post("/api/projects/:id/file", async (req, res) => {
       });
     }
 
-    // Validate file content.
     if (typeof content !== "string") {
       return res.status(400).json({
         success: false,
@@ -738,7 +1052,6 @@ app.post("/api/projects/:id/file", async (req, res) => {
       });
     }
 
-    // Limit saved content to 1 MB.
     if (Buffer.byteLength(content, "utf8") > MAX_READ_SIZE) {
       return res.status(413).json({
         success: false,
@@ -746,7 +1059,6 @@ app.post("/api/projects/:id/file", async (req, res) => {
       });
     }
 
-    // Ensure the project has uploaded files.
     const project = await getUploadedProject(projectId);
 
     if (!project) {
@@ -756,7 +1068,6 @@ app.post("/api/projects/:id/file", async (req, res) => {
       });
     }
 
-    // Validate the requested relative file path.
     const parts = validateRelativePath(req.query.path);
 
     const filePath = ensureInsideRoot(
@@ -764,9 +1075,7 @@ app.post("/api/projects/:id/file", async (req, res) => {
       path.resolve(project.root, ...parts)
     );
 
-    // Resolve the actual path to prevent directory traversal.
     const realFilePath = await fs.promises.realpath(filePath);
-
     ensureInsideRoot(project.root, realFilePath);
 
     const stat = await fs.promises.lstat(realFilePath);
@@ -778,7 +1087,6 @@ app.post("/api/projects/:id/file", async (req, res) => {
       });
     }
 
-    // Recheck the size of the existing file.
     if (stat.size > MAX_READ_SIZE) {
       return res.status(413).json({
         success: false,
@@ -786,7 +1094,6 @@ app.post("/api/projects/:id/file", async (req, res) => {
       });
     }
 
-    // Save only the existing file; do not create arbitrary paths.
     await fs.promises.writeFile(realFilePath, content, {
       encoding: "utf8",
     });
@@ -821,6 +1128,9 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Start backend server.
 app.listen(PORT, () => {
-  console.log(`DevPilot backend running at http://localhost:${PORT}`);
+  console.log(
+    `DevPilot backend running at http://localhost:${PORT}`
+  );
 });
