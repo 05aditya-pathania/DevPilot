@@ -5,6 +5,7 @@ const yauzl = require("yauzl");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { ESLint } = require("eslint");
 require("dotenv").config();
 
 const pool = require("./db");
@@ -175,6 +176,47 @@ function analyzeJavaScript(content, relativePath) {
   return findings;
 }
 
+// Run ESLint against source text without executing uploaded code.
+async function analyzeWithESLint(content, relativePath) {
+  const eslint = new ESLint({
+    cwd: __dirname,
+    overrideConfigFile: path.join(__dirname, "eslint.config.js"),
+  });
+
+  const results = await eslint.lintText(content, {
+    filePath: path.resolve(__dirname, relativePath),
+  });
+
+  const findings = [];
+
+  for (const result of results) {
+    for (const message of result.messages) {
+      // Ignore parser errors here; report them through the existing
+      // analysis error mechanism in a later integration step.
+      if (!message.ruleId) {
+        continue;
+      }
+
+      findings.push({
+        file: relativePath,
+        line: message.line || 1,
+        column: message.column || 1,
+        severity:
+          message.severity === 2
+            ? "error"
+            : message.severity === 1
+              ? "warning"
+              : "info",
+        rule: message.ruleId,
+        message: message.message,
+        excerpt: "",
+      });
+    }
+  }
+
+  return findings;
+}
+
 // Scan uploaded project files without executing them.
 async function analyzeProjectFiles(projectRoot) {
   const findings = [];
@@ -314,18 +356,47 @@ async function analyzeProjectFiles(projectRoot) {
         findings.push(
           ...analyzeJavaScript(content, relativePath)
         );
-      } catch (error) {
+
+                try {
+          const eslintFindings = await analyzeWithESLint(
+            content,
+            relativePath
+          );
+
+          findings.push(...eslintFindings);
+
+          console.log(
+            `[ESLint] ${relativePath}: ${eslintFindings.length} findings`
+          );
+        
+        } catch (eslintError) {
+          console.error(
+            `[ESLint Error] ${relativePath}:`,
+            eslintError
+          );
+
+          errors.push({
+            path: relativePath,
+            message: `ESLint analysis failed: ${
+              eslintError.message || "Unknown ESLint error"
+            }`,
+          });
+        }
+      } catch (fileError) {
         errors.push({
           path: relativePath,
-          message: error.message || "Unable to analyze file.",
+          message: `Unable to analyze file: ${
+            fileError.message || "Unknown file error"
+          }`,
         });
       }
     }
-  }
 
-  await walk(projectRoot);
+    }
 
-  return {
+    await walk(projectRoot);
+
+    return {
     filesScanned: scannedFiles.length,
     filesSkipped,
     totalBytesScanned,

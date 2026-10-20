@@ -17,5 +17,8 @@
     "multer": "^2.4.0",
     "pg": "^8.23.1",
     "yauzl": "^3.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5"
   }
 }
