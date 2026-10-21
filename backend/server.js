@@ -187,6 +187,27 @@ async function analyzeWithESLint(content, relativePath) {
     filePath: path.resolve(__dirname, relativePath),
   });
 
+    console.log(
+    "[ESLint Config Test]",
+    JSON.stringify(
+      {
+        filePath: path.resolve(__dirname, relativePath),
+        results: results.map((result) => ({
+          warningCount: result.warningCount,
+          errorCount: result.errorCount,
+          messages: result.messages.map((message) => ({
+            rule: message.ruleId,
+            severity: message.severity,
+            message: message.message,
+          })),
+        })),
+      },
+      null,
+      2
+    )
+  );
+
+  
   const findings = [];
 
   for (const result of results) {
@@ -358,6 +379,7 @@ async function analyzeProjectFiles(projectRoot) {
         );
 
                 try {
+          
           const eslintFindings = await analyzeWithESLint(
             content,
             relativePath
