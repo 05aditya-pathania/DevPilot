@@ -402,6 +402,7 @@ function App() {
 
             <div className="project-file-explorer">
               <FileExplorer
+                key={selectedProject.id}
                 project={selectedProject}
                 onBack={handleCloseProject}
               />

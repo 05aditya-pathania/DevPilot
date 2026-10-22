@@ -19,6 +19,7 @@
     "yauzl": "^3.4.0"
   },
   "devDependencies": {
-    "eslint": "^9.39.5"
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5"
   }
 }

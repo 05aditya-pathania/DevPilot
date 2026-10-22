@@ -53,17 +53,14 @@ function FileExplorer({ project, onBack }) {
     [project.id]
   );
 
-  // Reset the explorer when the selected project changes.
+  // Load files after the component has mounted.
   useEffect(() => {
-    setSelectedFile(null);
-    setFileContent("");
-    setDirty(false);
-    setFileError("");
-    setSaveMessage("");
-    setSaveError("");
+    const timer = setTimeout(() => {
+      void loadFiles("");
+    }, 0);
 
-    void loadFiles("");
-  }, [project.id, loadFiles]);
+    return () => clearTimeout(timer);
+  }, [loadFiles]);
 
   // Open a file or navigate into a directory.
   async function handleFileClick(file) {

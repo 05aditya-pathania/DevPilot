@@ -22,7 +22,6 @@ const MAX_EXTRACTED_SIZE = 100 * 1024 * 1024;
 const MAX_COMPRESSION_RATIO = 100;
 const MAX_READ_SIZE = 1024 * 1024;
 
-// Code analysis limits.
 const MAX_ANALYSIS_FILES = 300;
 const MAX_ANALYSIS_FILE_SIZE = 1024 * 1024;
 const MAX_ANALYSIS_TOTAL_SIZE = 10 * 1024 * 1024;
@@ -32,6 +31,9 @@ const ANALYZABLE_EXTENSIONS = new Set([
   ".jsx",
   ".mjs",
   ".cjs",
+  ".json",
+  ".py",
+  ".java",
 ]);
 
 const IGNORED_DIRECTORIES = new Set([
@@ -64,7 +66,6 @@ const upload = multer({
   },
 });
 
-// Validate a relative path supplied by the client.
 function validateRelativePath(filePath) {
   if (
     typeof filePath !== "string" ||
@@ -93,7 +94,6 @@ function validateRelativePath(filePath) {
   return parts;
 }
 
-// Ensure a resolved path stays inside its root directory.
 function ensureInsideRoot(root, target) {
   const resolveRoot = path.resolve(root);
   const resolveTarget = path.resolve(target);
@@ -110,8 +110,6 @@ function ensureInsideRoot(root, target) {
   return target;
 }
 
-// Analyze JavaScript source using lightweight heuristics.
-// This function never executes uploaded code.
 function analyzeJavaScript(content, relativePath) {
   const findings = [];
   const lines = content.split(/\r?\n/);
@@ -176,7 +174,248 @@ function analyzeJavaScript(content, relativePath) {
   return findings;
 }
 
-// Run ESLint against source text without executing uploaded code.
+function analyzeJSON(content, relativePath) {
+  try {
+    JSON.parse(content);
+    return [];
+  } catch (error) {
+    const match = error.message.match(/position\s+(\d+)/i);
+    const position = match ? Number(match[1]) : 0;
+    const beforeError = content.slice(0, position);
+    const line = beforeError.split(/\r?\n/).length;
+    const lastNewline = beforeError.lastIndexOf("\n");
+    const column = position - lastNewline;
+
+    return [{
+      file: relativePath,
+      line,
+      column,
+      severity: "error",
+      rule: "json/parse-error",
+      message: error.message,
+      excerpt:
+        content.split(/\r?\n/)[line - 1]?.trim().slice(0, 240) || "",
+    }];
+  }
+}
+
+const { spawn } = require("child_process");
+
+function analyzePython(content, relativePath) {
+  return new Promise((resolve, reject) => {
+    const script = [
+      "import ast, sys",
+      "source = sys.stdin.read()",
+      "try:",
+      "    ast.parse(source)",
+      "except SyntaxError as e:",
+      "    print(f'{e.lineno or 1}|{e.offset or 1}|{e.msg}')",
+      "    sys.exit(1)",
+      "sys.exit(0)",
+    ].join("\n");
+
+    const child = spawn("python", ["-c", script], {
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      child.kill();
+
+      if (!settled) {
+        settled = true;
+        reject(new Error("Python syntax check timed out."));
+      }
+    }, 5000);
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on("error", (error) => {
+      clearTimeout(timer);
+
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+
+      if (settled) return;
+      settled = true;
+
+      if (code === 0) {
+        resolve([]);
+        return;
+      }
+
+      const parts = stdout.trim().split("|");
+      const line = Number(parts[0]) || 1;
+      const column = Number(parts[1]) || 1;
+
+      const message =
+        parts.slice(2).join("|") ||
+        stderr.trim() ||
+        "Python syntax validation failed.";
+
+      resolve([{
+        file: relativePath,
+        line,
+        column,
+        severity: "error",
+        rule: "python/syntax-error",
+        message,
+        excerpt: "",
+      }]);
+    });
+
+    child.stdin.end(content);
+  });
+}
+
+async function analyzeJava(content, relativePath) {
+  const os = require("os");
+
+  const tempDir = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), "devpilot-java-")
+  );
+
+  const baseName = path.basename(relativePath);
+
+  try {
+    const sourcePath = path.join(tempDir, baseName);
+    const outputDir = path.join(tempDir, "classes");
+
+    await fs.promises.mkdir(outputDir, { recursive: true });
+    await fs.promises.writeFile(sourcePath, content, "utf8");
+
+    return await new Promise((resolve, reject) => {
+      const child = spawn(
+        "javac",
+        [
+          "-proc:none",
+          "-Xlint:none",
+          "-d",
+          outputDir,
+          sourcePath,
+        ],
+        {
+          windowsHide: true,
+          stdio: ["ignore", "pipe", "pipe"],
+          cwd: tempDir,
+        }
+      );
+
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+
+      const timer = setTimeout(() => {
+        child.kill();
+
+        if (!settled) {
+          settled = true;
+          reject(new Error("Java compilation check timed out."));
+        }
+      }, 8000);
+
+      child.stdout.setEncoding("utf8");
+      child.stderr.setEncoding("utf8");
+
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk;
+      });
+
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk;
+      });
+
+      child.on("error", (error) => {
+        clearTimeout(timer);
+
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
+      });
+
+      child.on("close", (code) => {
+        clearTimeout(timer);
+
+        if (settled) return;
+        settled = true;
+
+        if (code === 0) {
+          resolve([]);
+          return;
+        }
+
+        const output = `${stderr}\n${stdout}`.trim();
+
+        console.log(
+          "[Java Analyzer] Exit code:",
+          code,
+          "Output:",
+          output
+        );
+
+        const findings = [];
+        const pattern = /:(\d+):\s*(error|warning):\s*(.*)/g;
+
+        let match;
+
+        while ((match = pattern.exec(output)) !== null) {
+          findings.push({
+            file: relativePath,
+            line: Number(match[1]) || 1,
+            column: 1,
+            severity:
+              match[2] === "error" ? "error" : "warning",
+            rule: "java/compiler-diagnostic",
+            message: match[3].trim(),
+            excerpt: "",
+          });
+        }
+
+        resolve(
+          findings.length
+            ? findings
+            : [{
+                file: relativePath,
+                line: 1,
+                column: 1,
+                severity: "error",
+                rule: "java/compiler-diagnostic",
+                message:
+                  output.slice(0, 1000) ||
+                  "Java compilation check failed.",
+                excerpt: "",
+              }]
+        );
+      });
+    });
+  } finally {
+    await fs.promises.rm(tempDir, {
+      recursive: true,
+      force: true,
+    });
+  }
+}
+
 async function analyzeWithESLint(content, relativePath) {
   const eslint = new ESLint({
     cwd: __dirname,
@@ -187,33 +426,10 @@ async function analyzeWithESLint(content, relativePath) {
     filePath: path.resolve(__dirname, relativePath),
   });
 
-    console.log(
-    "[ESLint Config Test]",
-    JSON.stringify(
-      {
-        filePath: path.resolve(__dirname, relativePath),
-        results: results.map((result) => ({
-          warningCount: result.warningCount,
-          errorCount: result.errorCount,
-          messages: result.messages.map((message) => ({
-            rule: message.ruleId,
-            severity: message.severity,
-            message: message.message,
-          })),
-        })),
-      },
-      null,
-      2
-    )
-  );
-
-  
   const findings = [];
 
   for (const result of results) {
     for (const message of result.messages) {
-      // Ignore parser errors here; report them through the existing
-      // analysis error mechanism in a later integration step.
       if (!message.ruleId) {
         continue;
       }
@@ -238,13 +454,327 @@ async function analyzeWithESLint(content, relativePath) {
   return findings;
 }
 
-// Scan uploaded project files without executing them.
+async function findMavenProjectRoot(projectRoot) {
+  const pending = [projectRoot];
+  let visited = 0;
+  const MAX_DIRECTORIES_TO_CHECK = 1000;
+
+  while (pending.length && visited < MAX_DIRECTORIES_TO_CHECK) {
+    const directory = pending.shift();
+    visited++;
+
+    try {
+      const entries = await fs.promises.readdir(directory, {
+        withFileTypes: true,
+      });
+
+      if (
+        entries.some(
+          (entry) => entry.isFile() && entry.name === "pom.xml"
+        )
+      ) {
+        return directory;
+      }
+
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+
+      for (const entry of entries) {
+        if (
+          !entry.isDirectory() ||
+          entry.isSymbolicLink() ||
+          entry.name.startsWith(".") ||
+          IGNORED_DIRECTORIES.has(entry.name)
+        ) {
+          continue;
+        }
+
+        const child = path.join(directory, entry.name);
+        const realChild = await fs.promises.realpath(child);
+
+        ensureInsideRoot(projectRoot, realChild);
+        pending.push(realChild);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+// Maven compilation is disabled unless explicitly enabled for trusted projects.
+// Maven plugins can execute code, so do not enable this for arbitrary uploads.
+async function analyzeMavenProject(projectRoot, mavenRoot) {
+  const wrapperName =
+    process.platform === "win32" ? "mvnw.cmd" : "mvnw";
+
+  const wrapperPath = path.join(mavenRoot, wrapperName);
+  const wrapperStat = await fs.promises.lstat(wrapperPath).catch(() => null);
+
+  if (
+    !wrapperStat ||
+    !wrapperStat.isFile() ||
+    wrapperStat.isSymbolicLink()
+  ) {
+    return {
+      findings: [],
+      error: {
+        path:
+          path.relative(projectRoot, mavenRoot)
+            .split(path.sep)
+            .join("/") || ".",
+        message:
+          `Maven project found, but ${wrapperName} is missing. ` +
+          "Java files will use standalone javac analysis.",
+      },
+      usedMaven: false,
+    };
+  }
+
+  const realWrapper = await fs.promises.realpath(wrapperPath);
+  ensureInsideRoot(mavenRoot, realWrapper);
+
+  const outputLimit = 2 * 1024 * 1024;
+  const timeoutMs = 90000;
+
+  const result = await new Promise((resolve) => {
+    const args = [
+      "/d",
+      "/s",
+      "/c",
+      `call "${realWrapper}" -B -DskipTests "-Dmaven.compiler.proc=none" compile`,
+    ];
+
+    const child = spawn("cmd.exe", args, {
+      cwd: mavenRoot,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: false,
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let outputBytes = 0;
+    let settled = false;
+
+    const finish = (value) => {
+      if (settled) return;
+
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => {
+      child.kill();
+
+      finish({
+        error:
+          `Maven compilation timed out after ` +
+          `${Math.round(timeoutMs / 1000)} seconds.`,
+      });
+    }, timeoutMs);
+
+    const collect = (target, chunk) => {
+      outputBytes += Buffer.byteLength(chunk, "utf8");
+
+      if (outputBytes > outputLimit) {
+        child.kill();
+        finish({
+          error: "Maven output exceeded the 2 MB analysis limit.",
+        });
+        return;
+      }
+
+      if (target === "stdout") {
+        stdout += chunk;
+      } else {
+        stderr += chunk;
+      }
+    };
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+
+    child.stdout.on("data", (chunk) => collect("stdout", chunk));
+    child.stderr.on("data", (chunk) => collect("stderr", chunk));
+
+    child.on("error", (error) => {
+      finish({
+        error: `Unable to start Maven: ${error.message}`,
+      });
+    });
+
+    child.on("close", (code) => {
+      finish({
+        code,
+        output: `${stdout}\n${stderr}`,
+      });
+    });
+  });
+
+  if (result.error) {
+    return {
+      findings: [],
+      error: {
+        path:
+          path.relative(projectRoot, mavenRoot)
+            .split(path.sep)
+            .join("/") || ".",
+        message: result.error,
+      },
+      usedMaven: false,
+    };
+  }
+
+  // Temporary diagnostics: inspect the real Maven result in the backend console.
+  console.log("[DevPilot Maven] Exit code:", result.code);
+  console.log("[DevPilot Maven] Captured output:\n", result.output);
+
+  const findings = [];
+
+  const diagnosticPattern =
+    /^\[ERROR\]\s+(.+?\.java):\[(\d+),(\d+)\]\s+(.+)$/gm;
+
+  let match;
+
+  while ((match = diagnosticPattern.exec(result.output)) !== null) {
+    // Windows Maven output may prefix a drive path with a slash:
+    // /D:/folder/File.java -> D:/folder/File.java
+    const diagnosticPath = match[1].replace(/^\/([A-Za-z]:\/)/, "$1");
+
+    const absoluteSourcePath = path.resolve(
+      mavenRoot,
+      diagnosticPath
+    );
+
+    const relativeToMaven = path.relative(
+      mavenRoot,
+      absoluteSourcePath
+    );
+
+    if (
+      relativeToMaven === ".." ||
+      relativeToMaven.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeToMaven)
+    ) {
+      continue;
+    }
+
+    const realSourcePath = await fs.promises.realpath(
+      absoluteSourcePath
+    ).catch(() => null);
+
+    if (!realSourcePath) {
+      continue;
+    }
+
+    ensureInsideRoot(mavenRoot, realSourcePath);
+
+    const sourceRelativeToRoot = path.relative(
+      projectRoot,
+      realSourcePath
+    );
+
+    if (
+      sourceRelativeToRoot === ".." ||
+      sourceRelativeToRoot.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(sourceRelativeToRoot)
+    ) {
+      continue;
+    }
+
+    const line = Number(match[2]) || 1;
+    const column = Number(match[3]) || 1;
+    const message = match[4].trim();
+
+    let excerpt = "";
+
+    try {
+      const source = await fs.promises.readFile(
+        realSourcePath,
+        "utf8"
+      );
+
+      excerpt = (
+        source.split(/\r?\n/)[line - 1] || ""
+      ).trim().slice(0, 240);
+    } catch {
+      // Keep the diagnostic even when the source excerpt is unavailable.
+    }
+
+    findings.push({
+      file: sourceRelativeToRoot.split(path.sep).join("/"),
+      line,
+      column,
+      severity: "error",
+      rule: "java/maven-compiler",
+      message,
+      excerpt,
+    });
+  }
+
+  const uniqueFindings = [];
+  const seen = new Set();
+
+  for (const finding of findings) {
+    const key = [
+      finding.file,
+      finding.line,
+      finding.column,
+      finding.message,
+    ].join("|");
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueFindings.push(finding);
+    }
+  }
+
+  const errors = [];
+
+  if (result.code !== 0 && uniqueFindings.length === 0) {
+    const detail = result.output
+      .split(/\r?\n/)
+      .filter((line) => /^\[ERROR\]/.test(line))
+      .slice(-8)
+      .join("\n")
+      .slice(0, 1200);
+
+    errors.push({
+      path:
+        path.relative(projectRoot, mavenRoot)
+          .split(path.sep)
+          .join("/") || ".",
+      message: detail
+        ? `Maven compilation failed without a parsed Java source diagnostic:\n${detail}`
+        : `Maven compilation exited with code ${result.code} without a parsed Java source diagnostic.`,
+    });
+  }
+
+  return {
+    findings: uniqueFindings,
+    errors,
+    usedMaven: true,
+  };
+}
+
 async function analyzeProjectFiles(projectRoot) {
   const findings = [];
   const errors = [];
   const scannedFiles = [];
 
   let filesSkipped = 0;
+
+  const skipReasons = {
+    hiddenEntries: 0,
+    ignoredDirectories: 0,
+    symbolicLinks: 0,
+    unsupportedExtensions: 0,
+    oversizedFiles: 0,
+    other: 0,
+  };
+
   let totalBytesScanned = 0;
   let fileLimitReached = false;
 
@@ -252,6 +782,32 @@ async function analyzeProjectFiles(projectRoot) {
 
   if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
     throw new Error("Invalid project directory");
+  }
+
+  const mavenRoot = await findMavenProjectRoot(projectRoot);
+  let mavenResult = null;
+
+  const mavenAnalysisEnabled =
+    process.env.DEVPILOT_ENABLE_MAVEN_ANALYSIS === "true";
+
+  if (mavenRoot && mavenAnalysisEnabled) {
+    mavenResult = await analyzeMavenProject(projectRoot, mavenRoot);
+
+    findings.push(...mavenResult.findings);
+
+    if (mavenResult.error) errors.push(mavenResult.error);
+    if (mavenResult.errors) errors.push(...mavenResult.errors);
+  } else if (mavenRoot) {
+    errors.push({
+      path:
+        path.relative(projectRoot, mavenRoot)
+          .split(path.sep)
+          .join("/") || ".",
+      message:
+        "Maven project detected, but Maven compilation is disabled. " +
+        "Set DEVPILOT_ENABLE_MAVEN_ANALYSIS=true only for trusted projects; " +
+        "Maven build plugins may execute code.",
+    });
   }
 
   async function walk(directory) {
@@ -294,24 +850,26 @@ async function analyzeProjectFiles(projectRoot) {
 
       if (entry.name.startsWith(".")) {
         filesSkipped++;
+        skipReasons.hiddenEntries++;
         continue;
       }
 
       const absolutePath = path.join(directory, entry.name);
 
-      const relativePath = path
-        .relative(projectRoot, absolutePath)
+      const relativePath = path.relative(projectRoot, absolutePath)
         .split(path.sep)
         .join("/");
 
       if (entry.isSymbolicLink()) {
         filesSkipped++;
+        skipReasons.symbolicLinks++;
         continue;
       }
 
       if (entry.isDirectory()) {
         if (IGNORED_DIRECTORIES.has(entry.name)) {
           filesSkipped++;
+          skipReasons.ignoredDirectories++;
           continue;
         }
 
@@ -321,6 +879,7 @@ async function analyzeProjectFiles(projectRoot) {
 
       if (!entry.isFile()) {
         filesSkipped++;
+        skipReasons.other++;
         continue;
       }
 
@@ -328,6 +887,7 @@ async function analyzeProjectFiles(projectRoot) {
 
       if (!ANALYZABLE_EXTENSIONS.has(extension)) {
         filesSkipped++;
+        skipReasons.unsupportedExtensions++;
         continue;
       }
 
@@ -340,11 +900,13 @@ async function analyzeProjectFiles(projectRoot) {
 
         if (!stat.isFile() || stat.isSymbolicLink()) {
           filesSkipped++;
+          skipReasons.symbolicLinks++;
           continue;
         }
 
         if (stat.size > MAX_ANALYSIS_FILE_SIZE) {
           filesSkipped++;
+          skipReasons.oversizedFiles++;
 
           errors.push({
             path: relativePath,
@@ -354,10 +916,7 @@ async function analyzeProjectFiles(projectRoot) {
           continue;
         }
 
-        if (
-          totalBytesScanned + stat.size >
-          MAX_ANALYSIS_TOTAL_SIZE
-        ) {
+        if (totalBytesScanned + stat.size > MAX_ANALYSIS_TOTAL_SIZE) {
           fileLimitReached = true;
           return;
         }
@@ -374,61 +933,120 @@ async function analyzeProjectFiles(projectRoot) {
           size: stat.size,
         });
 
-        findings.push(
-          ...analyzeJavaScript(content, relativePath)
-        );
-
-                try {
-          
-          const eslintFindings = await analyzeWithESLint(
+        if ([".js", ".jsx", ".mjs", ".cjs"].includes(extension)) {
+          const heuristicFindings = analyzeJavaScript(
             content,
             relativePath
           );
 
-          findings.push(...eslintFindings);
+          findings.push(...heuristicFindings);
 
-          console.log(
-            `[ESLint] ${relativePath}: ${eslintFindings.length} findings`
-          );
-        
-        } catch (eslintError) {
-          console.error(
-            `[ESLint Error] ${relativePath}:`,
-            eslintError
-          );
+          try {
+            const eslintFindings = await analyzeWithESLint(
+              content,
+              relativePath
+            );
 
-          errors.push({
-            path: relativePath,
-            message: `ESLint analysis failed: ${
-              eslintError.message || "Unknown ESLint error"
-            }`,
-          });
+            const duplicateRules = new Set([
+              "no-debugger",
+              "no-eval",
+            ]);
+
+            findings.push(
+              ...eslintFindings.filter((item) => {
+                if (!duplicateRules.has(item.rule)) {
+                  return true;
+                }
+
+                const matchingRule =
+                  item.rule === "no-debugger"
+                    ? "debugger-statement"
+                    : "eval-usage";
+
+                return !heuristicFindings.some(
+                  (heuristic) =>
+                    heuristic.file === item.file &&
+                    heuristic.line === item.line &&
+                    heuristic.rule === matchingRule
+                );
+              })
+            );
+          } catch (eslintError) {
+            errors.push({
+              path: relativePath,
+              message:
+                `ESLint analysis failed: ` +
+                `${eslintError.message || "Unknown ESLint error"}`,
+            });
+          }
+        } else if (extension === ".json") {
+          findings.push(...analyzeJSON(content, relativePath));
+        } else if (extension === ".py") {
+          findings.push(
+            ...(await analyzePython(content, relativePath))
+          );
+        } else if (extension === ".java") {
+          const relativeToMaven = mavenRoot
+            ? path.relative(mavenRoot, realFilePath)
+            : null;
+
+          const fileIsInMavenProject =
+            Boolean(mavenRoot) &&
+            relativeToMaven !== ".." &&
+            !relativeToMaven.startsWith(`..${path.sep}`) &&
+            !path.isAbsolute(relativeToMaven);
+
+          // Maven handles Java files in Maven projects because standalone
+          // javac cannot resolve the project's dependencies.
+          if (!fileIsInMavenProject) {
+            findings.push(
+              ...(await analyzeJava(content, relativePath))
+            );
+          }
         }
       } catch (fileError) {
         errors.push({
           path: relativePath,
-          message: `Unable to analyze file: ${
-            fileError.message || "Unknown file error"
-          }`,
+          message:
+            `File analysis failed: ` +
+            `${fileError.message || "Unknown file analysis error"}`,
         });
       }
     }
+  }
 
+  await walk(projectRoot);
+
+  const uniqueFindings = [];
+  const seenFindings = new Set();
+
+  for (const finding of findings) {
+    const key = [
+      finding.file,
+      finding.line,
+      finding.column || 1,
+      finding.rule,
+      finding.message,
+    ].join("|");
+
+    if (!seenFindings.has(key)) {
+      seenFindings.add(key);
+      uniqueFindings.push(finding);
     }
+  }
 
-    await walk(projectRoot);
-
-    return {
+  return {
     filesScanned: scannedFiles.length,
     filesSkipped,
+    skipReasons,
     totalBytesScanned,
     fileLimitReached,
     scannedFiles,
-    findings,
+    findings: uniqueFindings,
     errors,
   };
 }
-// Safely extract a ZIP archive.
+
 function extractZipSafely(zipPath, destination) {
   return new Promise((resolve, reject) => {
     let zipfile;
@@ -508,6 +1126,7 @@ function extractZipSafely(zipPath, destination) {
 
           const parts = name.split("/");
           const isDirectory = name.endsWith("/");
+
           const effectiveParts = isDirectory
             ? parts.slice(0, -1)
             : parts;
@@ -523,6 +1142,7 @@ function extractZipSafely(zipPath, destination) {
 
           const unixMode =
             (entry.externalFileAttributes >>> 16) & 0xffff;
+
           const fileType = unixMode & 0o170000;
 
           if (
@@ -637,8 +1257,6 @@ function extractZipSafely(zipPath, destination) {
   });
 }
 
-// Retrieve a project only when it has an uploaded directory
-// inside the permitted project storage directory.
 async function getUploadedProject(projectId) {
   if (!Number.isSafeInteger(projectId) || projectId <= 0) {
     return null;
@@ -689,7 +1307,7 @@ async function getUploadedProject(projectId) {
     root: realRoot,
   };
 }
-// Root endpoint.
+
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -697,7 +1315,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// Backend health check.
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -706,7 +1323,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Database health check.
 app.get("/api/db-health", async (req, res) => {
   try {
     const result = await pool.query(
@@ -732,7 +1348,6 @@ app.get("/api/db-health", async (req, res) => {
   }
 });
 
-// Get all projects.
 app.get("/api/projects", async (req, res) => {
   try {
     const result = await pool.query(
@@ -759,7 +1374,6 @@ app.get("/api/projects", async (req, res) => {
   }
 });
 
-// Create a project.
 app.post("/api/projects", async (req, res) => {
   try {
     const { name, description = "" } = req.body;
@@ -810,7 +1424,7 @@ app.post("/api/projects", async (req, res) => {
     });
   }
 });
-// Upload and extract a ZIP for an existing project.
+
 app.post("/api/projects/:id/upload", (req, res) => {
   upload.single("file")(req, res, async (uploadError) => {
     if (uploadError) {
@@ -873,7 +1487,6 @@ app.post("/api/projects/:id/upload", (req, res) => {
         [destination, projectId]
       );
 
-      // Remove the previous upload only after the new upload succeeds.
       if (
         previousPath &&
         path.dirname(path.resolve(previousPath)) ===
@@ -913,7 +1526,6 @@ app.post("/api/projects/:id/upload", (req, res) => {
   });
 });
 
-// Analyze an uploaded project.
 app.post("/api/projects/:id/analyze", async (req, res) => {
   try {
     const projectId = Number(req.params.id);
@@ -939,6 +1551,7 @@ app.post("/api/projects/:id/analyze", async (req, res) => {
     const summary = {
       filesScanned: result.filesScanned,
       filesSkipped: result.filesSkipped,
+      skipReasons: result.skipReasons,
       totalBytesScanned: result.totalBytesScanned,
       findings: result.findings.length,
       errors: result.findings.filter(
@@ -973,7 +1586,7 @@ app.post("/api/projects/:id/analyze", async (req, res) => {
     });
   }
 });
-// List files and directories in an uploaded project.
+
 app.get("/api/projects/:id/files", async (req, res) => {
   try {
     const projectId = Number(req.params.id);
@@ -999,6 +1612,7 @@ app.get("/api/projects/:id/files", async (req, res) => {
     }
 
     const realDirectory = await fs.promises.realpath(directory);
+
     ensureInsideRoot(project.root, realDirectory);
 
     const directoryStat = await fs.promises.lstat(realDirectory);
@@ -1065,7 +1679,6 @@ app.get("/api/projects/:id/files", async (req, res) => {
   }
 });
 
-// Read a file from an uploaded project.
 app.get("/api/projects/:id/file", async (req, res) => {
   try {
     const projectId = Number(req.params.id);
@@ -1086,6 +1699,7 @@ app.get("/api/projects/:id/file", async (req, res) => {
     );
 
     const realFilePath = await fs.promises.realpath(filePath);
+
     ensureInsideRoot(project.root, realFilePath);
 
     const stat = await fs.promises.lstat(realFilePath);
@@ -1125,7 +1739,6 @@ app.get("/api/projects/:id/file", async (req, res) => {
   }
 });
 
-// Save edited file content to an uploaded project.
 app.post("/api/projects/:id/file", async (req, res) => {
   try {
     const projectId = Number(req.params.id);
@@ -1169,6 +1782,7 @@ app.post("/api/projects/:id/file", async (req, res) => {
     );
 
     const realFilePath = await fs.promises.realpath(filePath);
+
     ensureInsideRoot(project.root, realFilePath);
 
     const stat = await fs.promises.lstat(realFilePath);
@@ -1202,12 +1816,11 @@ app.post("/api/projects/:id/file", async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message || "Failed to save file",
+      message: error.message || "Failed to save project file",
     });
   }
 });
 
-// Handle unexpected errors.
 app.use((error, req, res, next) => {
   if (res.headersSent) {
     return next(error);
@@ -1221,7 +1834,6 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Start backend server.
 app.listen(PORT, () => {
   console.log(
     `DevPilot backend running at http://localhost:${PORT}`
