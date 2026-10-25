@@ -540,9 +540,12 @@ async function analyzeMavenProject(projectRoot, mavenRoot) {
   const result = await new Promise((resolve) => {
     const args = [
       "/d",
-      "/s",
       "/c",
-      `call "${realWrapper}" -B -DskipTests "-Dmaven.compiler.proc=none" compile`,
+      wrapperName,
+      "-B",
+      "-DskipTests",
+      "-Dmaven.compiler.proc=none",
+      "compile",
     ];
 
     const child = spawn("cmd.exe", args, {
