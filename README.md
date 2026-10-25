@@ -1,12 +1,10 @@
 # DevPilot 🚀
 
-**An AI-powered code analysis and debugging platform — currently under development.**
+**A developer-focused project analysis and debugging platform — currently under development.**
 
-DevPilot aims to help developers inspect projects, understand code issues, and review potential fixes from one workspace.
+DevPilot helps developers upload projects, browse and edit source files, and inspect potential code issues through a browser-based workspace.
 
-The current prototype supports project management, ZIP uploads, project file browsing, and editing and saving source files through a browser-based code editor. AI-powered analysis, explanations, and suggested fixes remain part of the roadmap.
-
-> **Project status:** Active development / prototype. This project is not production-ready.
+> **Project status:** Active development / prototype. Not production-ready.
 
 ---
 
@@ -36,6 +34,27 @@ The current prototype supports project management, ZIP uploads, project file bro
 - Display save status and errors.
 - Preserve saved file changes after refreshing the browser.
 
+### Static Code Analysis
+
+The current analysis implementation supports:
+
+- **JavaScript:** heuristic checks and ESLint integration.
+- **Python:** syntax validation using Python's AST parser.
+- **JSON:** parsing and syntax-error reporting.
+- **Java:** standalone Java analysis for files outside detected Maven projects.
+- **Maven projects:** optional compilation with Java compiler diagnostics, including source location and error message.
+
+Analysis responses include scanned-file information, findings, severity counts, skipped-file statistics, and analysis errors.
+
+Manual tests have verified selected Java, JavaScript, Python, and JSON error-detection scenarios. These checks do not constitute comprehensive automated test coverage.
+
+**Limitations:**
+- Static analysis is heuristic and may produce false positives or miss issues.
+- Only configured file extensions are analyzed.
+- File-size, file-count, and total-size limits apply.
+- Maven compilation is disabled unless explicitly enabled for trusted projects. Maven plugins can execute code, so enabling compilation for untrusted uploads is unsafe.
+- Analysis is not a complete security audit.
+
 ### Backend and Database
 - Node.js and Express API.
 - PostgreSQL database integration.
@@ -43,31 +62,29 @@ The current prototype supports project management, ZIP uploads, project file bro
 - Project file listing and file-content endpoints.
 - File-save endpoint with project-path validation.
 - Backend health-check endpoints.
+- Project analysis endpoint.
 
 ### Frontend
 - React + Vite application.
 - Project dashboard and file explorer.
+- Analysis loading state, summary cards, findings list, and analysis-error display.
 - Frontend-to-backend API integration.
-- Production build verified locally.
+- Production build verified locally using `npm run build`.
 
 ---
 
 ## 🗺️ Planned Features
 
-The following features are not yet implemented as complete product functionality:
+The following are not yet implemented as complete product functionality:
 
-- Static code analysis for supported languages.
-- Detection of code issues, errors, and warnings.
-- Analysis reports and history.
-- AI-assisted explanations.
+- AI-assisted explanations of code issues.
 - AI-generated fix suggestions and code diffs.
 - Review and approval workflow for suggested changes.
+- Analysis history and report persistence.
 - User authentication and authorization.
-- Automated tests and expanded security testing.
+- Comprehensive automated tests and expanded security testing.
 - Production deployment.
 - React Native / Expo mobile applications for Android and iOS.
-
-These features will be implemented and documented as development progresses.
 
 ---
 
@@ -87,15 +104,15 @@ These features will be implemented and documented as development progresses.
 - dotenv
 - Multer
 - yauzl
+- ESLint
+- Python AST parsing
+- Maven wrapper for optional Java project compilation
 
 ### Planned
-- Static-analysis tools for supported programming languages.
-- An AI API or model for explanations and suggested fixes.
+- AI API or model for explanations and suggested fixes.
 - Automated testing infrastructure.
 - Production hosting and deployment services.
 - React Native and Expo for mobile applications.
-
-The technology stack may evolve as development progresses.
 
 ---
 
