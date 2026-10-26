@@ -1,5 +1,5 @@
 import { useState } from "react";
-import CodeEditor from "./codeEditor.jsx";
+import CodeEditor from "./CodeEditor.jsx";
 
 import API_BASE_URL from "../config.js";
 
@@ -419,4 +419,5 @@ function DebugSessions({ projects = [] }) {
 }
 
 export default DebugSessions;
+
 

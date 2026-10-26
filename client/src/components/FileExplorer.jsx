@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import CodeEditor from "./codeEditor.jsx";
+import CodeEditor from "./CodeEditor.jsx";
 
 import API_BASE_URL from "../config.js";
 const API_URL = `${API_BASE_URL}/api`;
@@ -460,3 +460,4 @@ function FileExplorer({ project, onBack }) {
 }
 
 export default FileExplorer;
+
