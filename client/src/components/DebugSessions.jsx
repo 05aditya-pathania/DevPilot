@@ -1,7 +1,7 @@
 import { useState } from "react";
 import CodeEditor from "./codeEditor.jsx";
 
-const API_BASE_URL = "http://localhost:5000";
+import API_BASE_URL from "../config.js";
 
 function DebugSessions({ projects = [] }) {
   const [selectedProjectId, setSelectedProjectId] = useState(
@@ -419,3 +419,4 @@ function DebugSessions({ projects = [] }) {
 }
 
 export default DebugSessions;
+

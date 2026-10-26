@@ -1,4 +1,5 @@
 import { useState } from "react";
+import API_BASE_URL from "../config.js";
 
 const DEFAULT_SETTINGS = {
   theme: "vs-dark",
@@ -7,7 +8,7 @@ const DEFAULT_SETTINGS = {
   minimap: false,
 };
 
-function Settings({ apiUrl = "http://localhost:5000" }) {
+function Settings({ apiUrl = API_BASE_URL }) {
   const [editorSettings, setEditorSettings] = useState(() => {
     try {
       const stored = localStorage.getItem("devpilot_editor_settings");
@@ -309,3 +310,4 @@ function Settings({ apiUrl = "http://localhost:5000" }) {
 }
 
 export default Settings;
+

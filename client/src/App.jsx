@@ -10,7 +10,7 @@ import DebugSessions from "./components/DebugSessions";
 
 import "./App.css";
 
-const API_BASE_URL = "http://localhost:5000";
+import API_BASE_URL from "./config.js";
 
 function App() {
   const [activePage, setActivePage] = useState("dashboard");
