@@ -48,7 +48,22 @@ const IGNORED_DIRECTORIES = new Set([
 fs.mkdirSync(uploadDir, { recursive: true });
 fs.mkdirSync(projectsDir, { recursive: true });
 
-app.use(cors({ origin: "http://localhost:5173" }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://dev-pilot-gamma.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin not allowed by CORS"));
+    },
+  })
+);
 app.use(express.json({ limit: "100kb" }));
 
 const upload = multer({
