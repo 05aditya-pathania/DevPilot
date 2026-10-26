@@ -52,7 +52,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://dev-pilot-gamma.vercel.app",
   "https://dev-pilot-17oldalg-aditya-1f40.vercel.app",
-  "https://dev-pilot-17oldalg-aditya-1f40.vercel.app",
+  "https://dev-pilot-p5x0ba0aq-aditya-1f40.vercel.app",
 ];
 
 app.use(
