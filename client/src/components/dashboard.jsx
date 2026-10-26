@@ -7,13 +7,13 @@ function Dashboard({ projects = [] }) {
     },
     {
       title: "Analyses",
-      value: 0,
-      description: "Code analyses completed",
+      value: "—",
+      description: "Analysis history coming soon",
     },
     {
       title: "Resolved Issues",
-      value: 0,
-      description: "Issues successfully resolved",
+      value: "—",
+      description: "Issue tracking coming soon",
     },
   ];
 
@@ -117,7 +117,7 @@ function Dashboard({ projects = [] }) {
                 <div className="project-card-info">
                   <h3>{project.name}</h3>
 
-                  <p>Created: {project.createdAt}</p>
+                  <p>Created: {new Date(project.created_at).toLocaleDateString()}</p>
                 </div>
               </article>
             ))}

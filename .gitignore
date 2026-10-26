@@ -2,3 +2,15 @@
 **/.env
 **/dist/
 
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+
+# Local uploaded projects and test files
+backend/project-files/

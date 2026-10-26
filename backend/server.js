@@ -366,13 +366,6 @@ async function analyzeJava(content, relativePath) {
 
         const output = `${stderr}\n${stdout}`.trim();
 
-        console.log(
-          "[Java Analyzer] Exit code:",
-          code,
-          "Output:",
-          output
-        );
-
         const findings = [];
         const pattern = /:(\d+):\s*(error|warning):\s*(.*)/g;
 
@@ -422,8 +415,11 @@ async function analyzeWithESLint(content, relativePath) {
     overrideConfigFile: path.join(__dirname, "eslint.config.js"),
   });
 
+  // Use a synthetic path rooted in an 'uploaded' subdirectory so ESLint
+  // resolves the correct config context and extension-based rules without
+  // treating the file as a real file inside the backend source tree.
   const results = await eslint.lintText(content, {
-    filePath: path.resolve(__dirname, relativePath),
+    filePath: path.join(__dirname, "uploaded", relativePath),
   });
 
   const findings = [];
@@ -630,9 +626,6 @@ async function analyzeMavenProject(projectRoot, mavenRoot) {
     };
   }
 
-  // Temporary diagnostics: inspect the real Maven result in the backend console.
-  console.log("[DevPilot Maven] Exit code:", result.code);
-  console.log("[DevPilot Maven] Captured output:\n", result.output);
 
   const findings = [];
 
@@ -1070,7 +1063,7 @@ function extractZipSafely(zipPath, destination) {
       if (zipfile) {
         try {
           zipfile.close();
-        } catch {}
+        } catch { /* intentional: suppress close() errors during failure cleanup */ }
       }
 
       reject(error);
@@ -1593,6 +1586,14 @@ app.post("/api/projects/:id/analyze", async (req, res) => {
 app.get("/api/projects/:id/files", async (req, res) => {
   try {
     const projectId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid project ID",
+      });
+    }
+
     const project = await getUploadedProject(projectId);
 
     if (!project) {
@@ -1685,6 +1686,14 @@ app.get("/api/projects/:id/files", async (req, res) => {
 app.get("/api/projects/:id/file", async (req, res) => {
   try {
     const projectId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid project ID",
+      });
+    }
+
     const project = await getUploadedProject(projectId);
 
     if (!project) {
@@ -1831,9 +1840,16 @@ app.use((error, req, res, next) => {
 
   console.error("Request error:", error.message);
 
-  res.status(400).json({
+  // Use the error's status if it looks like a client error (4xx),
+  // otherwise fall back to 500 so server failures are not misreported.
+  const status =
+    error.status && error.status >= 400 && error.status < 500
+      ? error.status
+      : 500;
+
+  res.status(status).json({
     success: false,
-    message: "Invalid request",
+    message: status < 500 ? (error.message || "Invalid request") : "Internal server error",
   });
 });
 

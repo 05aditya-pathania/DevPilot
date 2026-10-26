@@ -239,7 +239,7 @@ function App() {
                 <div>
                   <strong>Analyzing your project...</strong>
                   <p>
-                    Scanning supported JavaScript files for
+                    Scanning supported files for
                     potential issues.
                   </p>
                 </div>
@@ -409,6 +409,14 @@ function App() {
             </div>
           </div>
         )}
+
+        {activePage !== "dashboard" &&
+          activePage !== "projects" && (
+            <div className="coming-soon">
+              <h2>Coming Soon</h2>
+              <p>This feature is not yet available.</p>
+            </div>
+          )}
       </div>
     </div>
   );

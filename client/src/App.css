@@ -1919,3 +1919,24 @@ button {
     transform: none;
   }
 }
+
+/* Coming Soon placeholder for unimplemented sidebar pages */
+.coming-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: var(--text-muted, #8b949e);
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.coming-soon h2 {
+  font-size: 1.5rem;
+  color: var(--text-secondary, #c9d1d9);
+}
+
+.coming-soon p {
+  font-size: 0.95rem;
+}
