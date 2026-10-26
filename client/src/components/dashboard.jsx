@@ -1,4 +1,20 @@
-function Dashboard({ projects = [] }) {
+import { useState } from "react";
+
+function Dashboard({ projects = [], onNavigate, onOpenProject }) {
+  const [analysisCount] = useState(() => {
+    try {
+      const data = localStorage.getItem("devpilot_analysis_history");
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          return parsed.length;
+        }
+      }
+    } catch {
+      // Default to 0 if storage is empty or unavailable
+    }
+    return 0;
+  });
   const stats = [
     {
       title: "Total Projects",
@@ -7,8 +23,8 @@ function Dashboard({ projects = [] }) {
     },
     {
       title: "Analyses",
-      value: "—",
-      description: "Analysis history coming soon",
+      value: analysisCount,
+      description: "Code analyses recorded",
     },
     {
       title: "Resolved Issues",
@@ -59,7 +75,12 @@ function Dashboard({ projects = [] }) {
         </div>
 
         <div className="action-grid">
-          <div className="action-card">
+          <div
+            className="action-card interactive"
+            onClick={() => onNavigate?.("projects")}
+            role="button"
+            tabIndex={0}
+          >
             <div className="action-icon">+</div>
 
             <h3>Manage Projects</h3>
@@ -68,19 +89,24 @@ function Dashboard({ projects = [] }) {
               Organize your projects and prepare them for code analysis.
             </p>
 
-            <span className="action-label">Available in Projects</span>
+            <span className="action-label">Open Projects</span>
           </div>
 
-          <div className="action-card">
+          <div
+            className="action-card interactive"
+            onClick={() => onNavigate?.("debug-sessions")}
+            role="button"
+            tabIndex={0}
+          >
             <div className="action-icon">&lt;/&gt;</div>
 
             <h3>Debug Code</h3>
 
             <p>
-              Prepare to investigate errors and understand code issues.
+              Inspect and triage code issues in a focused debugging session.
             </p>
 
-            <span className="action-label">Coming next</span>
+            <span className="action-label">Start Session</span>
           </div>
         </div>
       </section>
@@ -109,7 +135,13 @@ function Dashboard({ projects = [] }) {
         ) : (
           <div className="project-list">
             {projects.slice(-4).reverse().map((project) => (
-              <article className="project-card" key={project.id}>
+              <article
+                className="project-card interactive"
+                key={project.id}
+                onClick={() => onOpenProject?.(project)}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="project-card-icon">
                   {project.name.charAt(0).toUpperCase()}
                 </div>

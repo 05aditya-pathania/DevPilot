@@ -55,6 +55,11 @@ Manual tests have verified selected Java, JavaScript, Python, and JSON error-det
 - Maven compilation is disabled unless explicitly enabled for trusted projects. Maven plugins can execute code, so enabling compilation for untrusted uploads is unsafe.
 - Analysis is not a complete security audit.
 
+### Debugging & Workflow Tools
+- **Static Code Debugging Sessions:** Interactive triage interface to inspect findings by severity, view source code in Monaco editor, edit files, and re-scan to verify fixes.
+- **Analysis Scan History:** Chronological history of completed project analyses with project filtering, search, and summary metric tracking.
+- **Workspace Settings:** Configurable Monaco code editor preferences (theme, font size, word wrap, minimap), live backend connectivity testing, and engine limits inspection.
+
 ### Backend and Database
 - Node.js and Express API.
 - PostgreSQL database integration.
@@ -80,7 +85,7 @@ The following are not yet implemented as complete product functionality:
 - AI-assisted explanations of code issues.
 - AI-generated fix suggestions and code diffs.
 - Review and approval workflow for suggested changes.
-- Analysis history and report persistence.
+- Interactive runtime debugging (GDB/V8 process attachments).
 - User authentication and authorization.
 - Comprehensive automated tests and expanded security testing.
 - Production deployment.

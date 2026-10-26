@@ -4,6 +4,9 @@ import Projects from "./components/projects";
 import Sidebar from "./components/sidebar";
 import Dashboard from "./components/dashboard";
 import FileExplorer from "./components/fileExplorer";
+import Settings from "./components/Settings";
+import History from "./components/History";
+import DebugSessions from "./components/DebugSessions";
 
 import "./App.css";
 
@@ -116,6 +119,30 @@ function App() {
       }
 
       setAnalysis(data);
+
+      try {
+        const historyRun = {
+          id: `scan-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          projectId: selectedProject.id,
+          projectName: selectedProject.name,
+          timestamp: new Date().toISOString(),
+          findingsCount: data.findings?.length || 0,
+          errors: data.summary?.errors || 0,
+          warnings: data.summary?.warnings || 0,
+          info: data.summary?.info || 0,
+          summary: data.summary || {},
+        };
+        const existing = JSON.parse(
+          localStorage.getItem("devpilot_analysis_history") || "[]"
+        );
+        const updated = [historyRun, ...existing].slice(0, 100);
+        localStorage.setItem(
+          "devpilot_analysis_history",
+          JSON.stringify(updated)
+        );
+      } catch (err) {
+        console.warn("Could not log analysis run to history:", err);
+      }
     } catch (error) {
       setAnalysisError(
         error.message ||
@@ -167,7 +194,11 @@ function App() {
         )}
 
         {activePage === "dashboard" && (
-          <Dashboard projects={projects} />
+          <Dashboard
+            projects={projects}
+            onNavigate={setActivePage}
+            onOpenProject={handleOpenProject}
+          />
         )}
 
         {activePage === "projects" && !selectedProject && (
@@ -410,13 +441,23 @@ function App() {
           </div>
         )}
 
-        {activePage !== "dashboard" &&
-          activePage !== "projects" && (
-            <div className="coming-soon">
-              <h2>Coming Soon</h2>
-              <p>This feature is not yet available.</p>
-            </div>
-          )}
+        {activePage === "debug-sessions" && (
+          <DebugSessions
+            projects={projects}
+            onOpenProject={handleOpenProject}
+          />
+        )}
+
+        {activePage === "history" && (
+          <History
+            projects={projects}
+            onOpenProject={handleOpenProject}
+          />
+        )}
+
+        {activePage === "settings" && (
+          <Settings apiUrl={API_BASE_URL} />
+        )}
       </div>
     </div>
   );

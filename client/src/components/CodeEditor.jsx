@@ -15,6 +15,30 @@ function CodeEditor({
   const [editorReady, setEditorReady] = useState(false);
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
+  const [editorSettings, setEditorSettings] = useState(() => {
+    try {
+      const stored = localStorage.getItem("devpilot_editor_settings");
+      return stored
+        ? JSON.parse(stored)
+        : { theme: "vs-dark", fontSize: 13, wordWrap: "off", minimap: false };
+    } catch {
+      return { theme: "vs-dark", fontSize: 13, wordWrap: "off", minimap: false };
+    }
+  });
+
+  useEffect(() => {
+    function onSettingsChange() {
+      try {
+        const stored = localStorage.getItem("devpilot_editor_settings");
+        if (stored) {
+          setEditorSettings(JSON.parse(stored));
+        }
+      } catch { /* intentional: ignore parse error on storage update */ }
+    }
+    window.addEventListener("devpilot-settings-changed", onSettingsChange);
+    return () =>
+      window.removeEventListener("devpilot-settings-changed", onSettingsChange);
+  }, []);
 
   const getLanguage = useCallback((filename = "") => {
     const extension = filename.split(".").pop()?.toLowerCase();
@@ -145,18 +169,18 @@ function CodeEditor({
         <Editor
           height="480px"
           language={getLanguage(file.name)}
-          theme="vs-dark"
+          theme={editorSettings?.theme || "vs-dark"}
           value={content}
           onChange={(value) => onChange?.(value ?? "")}
           onMount={handleEditorMount}
           loading="Loading editor..."
           options={{
             automaticLayout: true,
-            minimap: { enabled: false },
-            fontSize: 13,
+            minimap: { enabled: Boolean(editorSettings?.minimap) },
+            fontSize: Number(editorSettings?.fontSize) || 13,
             lineHeight: 22,
             fontFamily: "Consolas, 'Courier New', monospace",
-            wordWrap: "off",
+            wordWrap: editorSettings?.wordWrap || "off",
             scrollBeyondLastLine: false,
             renderLineHighlight: "all",
             smoothScrolling: true,
