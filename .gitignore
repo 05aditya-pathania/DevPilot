@@ -32,3 +32,8 @@ backend/server-backup.txt
 backend/server-before-eslint.js
 backend/maven-spawn-test.cjs
 patch_skip_reasons.py
+
+# Additional local server backups
+backend/server.js.backup
+backend/server.js.pre-language-dispatch-backup
+backend/server.js.pre-multilang-backup
