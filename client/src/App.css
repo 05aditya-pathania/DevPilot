@@ -78,6 +78,11 @@
   --primary-hover: #111111;
   --primary-light: #f0f0f0;
 
+  /* Accent — Muted warm sand / champagne (hover & focus only) */
+  --accent: #c9a96e;
+  --accent-line: rgba(201, 169, 110, 0.45);
+  --accent-soft: rgba(201, 169, 110, 0.10);
+
   /* Text */
   --text-primary: #111111;
   --text-secondary: #6b7280;
@@ -129,6 +134,29 @@ body {
   color: var(--text-primary);
 }
 
+/* Background hover light — fixed 600px radial glow, moved strictly with translate3d */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 600px;
+  height: 600px;
+  margin-top: -300px;
+  margin-left: -300px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(201, 169, 110, 0.04) 0%,
+    transparent 70%
+  );
+  transform: translate3d(var(--mx, -999px), var(--my, -999px), 0);
+  transition: transform 350ms cubic-bezier(0.16, 1, 0.3, 1), opacity 350ms ease;
+  opacity: var(--pointer-active, 0);
+}
+
 button,
 input,
 textarea,
@@ -144,6 +172,8 @@ button {
 
 .app,
 .App {
+  position: relative;
+  z-index: 1;
   display: flex;
   width: 100%;
   min-height: 100vh;
@@ -342,18 +372,25 @@ button {
 }
 
 .stat-card {
+  position: relative;
+  overflow: hidden;
   min-width: 0;
   padding: 19px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 11px;
   box-shadow: var(--shadow);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.stat-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .stat-card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.05);
+  border-color: var(--accent-line);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .stat-card h3 {
@@ -414,12 +451,25 @@ button {
 }
 
 .action-card {
+  position: relative;
+  overflow: hidden;
   min-width: 0;
   padding: 19px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 11px;
   box-shadow: var(--shadow);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.action-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.action-card:hover {
+  border-color: var(--accent-line);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .action-icon {
@@ -614,6 +664,8 @@ button {
 }
 
 .project-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 13px;
@@ -623,13 +675,17 @@ button {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow-wrap: anywhere;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.project-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .project-card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.05);
-  transform: translateY(-2px);
+  border-color: var(--accent-line);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .project-card h3 {
@@ -814,6 +870,18 @@ button {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce), (hover: none) {
+  body::before {
+    display: none !important;
+  }
+
+  .stat-card::before,
+  .project-card::before,
+  .action-card::before {
+    display: none !important;
   }
 }
 /* ========================================
@@ -1111,48 +1179,40 @@ button {
   min-width: 0;
   padding: 22px;
   overflow: hidden;
-
-  background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
-  border: 1px solid #e8e7f3;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 15px;
-
-  box-shadow: 0 2px 8px rgba(35, 35, 70, 0.025);
-
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.025);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
-/* Subtle purple accent */
-
-.project-card::before {
+/* Card Cursor-following Spotlight Overlay */
+.stat-card::before,
+.project-card::before,
+.action-card::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 20px;
-  right: 20px;
-  height: 3px;
-
-  background: linear-gradient(
-    90deg,
-    #1a1a1a,
-    #9ca3af
-  );
-
-  border-radius: 0 0 5px 5px;
+  inset: 0;
+  pointer-events: none;
   opacity: 0;
-  transition: opacity 180ms ease;
+  background: radial-gradient(
+    260px circle at var(--x, 50%) var(--y, 50%),
+    rgba(201, 169, 110, 0.07),
+    transparent 100%
+  );
+  transition: opacity 250ms ease;
+  z-index: 0;
+}
+
+.stat-card:hover::before,
+.project-card:hover::before,
+.action-card:hover::before {
+  opacity: 1;
 }
 
 .project-card:hover {
-  transform: translateY(-3px);
-  border-color: #d1d5db;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.07);
-}
-
-.project-card:hover::before {
-  opacity: 1;
+  border-color: var(--accent-line);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 /* Project information */
@@ -2034,9 +2094,9 @@ button {
 
 .action-card.interactive:hover,
 .project-card.interactive:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(30, 41, 59, 0.08);
-  border-color: var(--primary, #1a1a1a);
+  transform: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-color: var(--accent-line);
 }
 
 /* Settings View Styles */
@@ -2222,13 +2282,56 @@ button {
   gap: 0.5rem;
 }
 
-.history-filters select,
 .history-filters input {
   padding: 0.45rem 0.75rem;
   border: 1px solid var(--border-strong, #d9deeb);
-  border-radius: 6px;
+  border-radius: 8px;
   background: #ffffff;
   font-size: 0.9rem;
+}
+
+.history-filters select,
+.project-select-group select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #f4f4f5;
+  background-color: #18181b;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+  border: 1px solid var(--border-strong, #3f3f46);
+  border-radius: 8px;
+  padding: 8px 36px 8px 12px;
+  min-height: 38px;
+  cursor: pointer;
+  color-scheme: dark;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.history-filters select:hover,
+.project-select-group select:hover {
+  border-color: var(--accent-line);
+  background-color: #242427;
+}
+
+.history-filters select:focus-visible,
+.project-select-group select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-color: var(--accent);
+}
+
+.history-filters select option,
+.project-select-group select option {
+  background-color: #18181b;
+  color: #f4f4f5;
+  padding: 8px 12px;
 }
 
 .history-count {
@@ -2375,11 +2478,6 @@ button {
 }
 
 .project-select-group select {
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--border-strong, #d9deeb);
-  border-radius: 6px;
-  background: #ffffff;
-  font-size: 0.95rem;
   min-width: 220px;
 }
 
