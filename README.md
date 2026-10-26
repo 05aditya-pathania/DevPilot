@@ -71,7 +71,11 @@ Manual tests have verified selected Java, JavaScript, Python, and JSON error-det
 
 ### Frontend
 - React + Vite application.
-- Project dashboard and file explorer.
+- **Premium Dark Navy & Electric Cyan Theme:** `#07111D` deep navy canvas, `#101F30` / `#14263A` elevated cards, `#233B52` borders, `#22D3EE` electric cyan and `#168BFF` blue accents.
+- **Abstract CSS Ambient Lighting & Grid Mesh:** Pure CSS background textures and moving ambient light (zero external image dependencies, zero mountain photos).
+- **Self-Hosted Typography:** Local Inter (UI text) and JetBrains Mono (code, file paths, diagnostics).
+- **Execution Feedback & Progress Panels:** Visual feedback during static code analysis with stage indicators, spinner, and duplicate submission locks.
+- **Responsive Workspace Navigation:** Sidebar with SVG icons, live engine status chip, and responsive collapsible layout for desktop, laptop, tablet, and mobile.
 - Analysis loading state, summary cards, findings list, and analysis-error display.
 - Frontend-to-backend API integration.
 - Production build verified locally using `npm run build`.

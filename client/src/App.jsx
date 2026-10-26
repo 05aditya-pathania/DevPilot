@@ -268,10 +268,9 @@ function App() {
               >
                 <span className="analysis-spinner"></span>
                 <div>
-                  <strong>Analyzing your project...</strong>
+                  <strong>Executing Static Code Analysis...</strong>
                   <p>
-                    Scanning supported files for
-                    potential issues.
+                    Scanning repository files with heuristics, AST parsing, and diagnostics.
                   </p>
                 </div>
               </div>
