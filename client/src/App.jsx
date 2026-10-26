@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Projects from "./components/projects";
 import Sidebar from "./components/sidebar";
 import Dashboard from "./components/dashboard";
-import FileExplorer from "./components/fileExplorer";
+import FileExplorer from "./components/FileExplorer.jsx";
 import Settings from "./components/Settings";
 import History from "./components/History";
 import DebugSessions from "./components/DebugSessions";
@@ -463,3 +463,4 @@ function App() {
 }
 
 export default App;
+
