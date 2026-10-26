@@ -11,3 +11,24 @@
 
 # Local uploaded projects and test files
 backend/project-files/
+
+# Local backups and temporary debugging scripts
+backend/*.bak
+backend/server-backup.txt
+backend/server-before-eslint.js
+backend/maven-spawn-test.cjs
+patch_skip_reasons.py
+
+# Local backups and temporary debugging scripts
+backend/*.bak
+backend/server-backup.txt
+backend/server-before-eslint.js
+backend/maven-spawn-test.cjs
+patch_skip_reasons.py
+
+# Local backups and temporary debugging scripts
+backend/*.bak
+backend/server-backup.txt
+backend/server-before-eslint.js
+backend/maven-spawn-test.cjs
+patch_skip_reasons.py
