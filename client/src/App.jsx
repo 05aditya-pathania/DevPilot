@@ -165,6 +165,22 @@ function App() {
     setAnalysis(null);
     setAnalysisError("");
   }
+  function handleProjectUploaded(projectId) {
+  setProjects((previousProjects) =>
+    previousProjects.map((project) =>
+      String(project.id) === String(projectId)
+        ? { ...project, upload_status: "uploaded" }
+        : project
+    )
+  );
+
+  setSelectedProject((previousProject) =>
+    previousProject &&
+    String(previousProject.id) === String(projectId)
+      ? { ...previousProject, upload_status: "uploaded" }
+      : previousProject
+  );
+}
 
   return (
     <div className="App">
@@ -435,6 +451,7 @@ function App() {
                 key={selectedProject.id}
                 project={selectedProject}
                 onBack={handleCloseProject}
+                onProjectUploaded={handleProjectUploaded}
               />
             </div>
           </div>

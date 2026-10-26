@@ -4,7 +4,7 @@ import CodeEditor from "./CodeEditor.jsx";
 import API_BASE_URL from "../config.js";
 const API_URL = `${API_BASE_URL}/api`;
 
-function FileExplorer({ project, onBack }) {
+function FileExplorer({ project, onBack, onProjectUploaded }) {
   const [files, setFiles] = useState([]);
   const [currentPath, setCurrentPath] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -40,6 +40,15 @@ function FileExplorer({ project, onBack }) {
         if (!response.ok || !data.success) {
           throw new Error(data.message || "Failed to load project files.");
         }
+
+        onProjectUploaded?.(project.id);
+
+        setSelectedFile(null);
+        setFileContent("");
+        setDirty(false);
+        setFileError("");
+
+        await loadFiles("");
 
         setFiles(data.files || []);
         setCurrentPath(folderPath);
