@@ -112,7 +112,7 @@ function History({ projects = [], onOpenProject }) {
       {/* History Items List */}
       {filteredItems.length === 0 ? (
         <section className="history-empty">
-          <div className="empty-icon">📜</div>
+          <div className="empty-icon" aria-hidden="true">[ ]</div>
           <h3>No Analysis History Found</h3>
           <p>
             {historyItems.length === 0

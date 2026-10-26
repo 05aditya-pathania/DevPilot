@@ -1,22 +1,105 @@
+/* ============================================================
+   DevPilot — Self-hosted fonts
+   Inter: UI text (weights 400 / 500 / 600)
+   JetBrains Mono: code, paths, diagnostics (weights 400 / 500)
+   ============================================================ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter/inter-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/inter/inter-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/inter/inter-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono/jetbrains-mono-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono/jetbrains-mono-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ============================================================
+   DevPilot — Design Tokens (monochrome palette)
+   ============================================================ */
+
 :root {
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  color: #172033;
-  background: #f7f8fc;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    Arial, sans-serif;
+  color: #111111;
+  background: #f6f6f6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --primary: #7651f5;
-  --primary-hover: #6540e8;
-  --primary-light: #eee9ff;
-  --text-primary: #172033;
-  --text-secondary: #68738a;
+  /* Brand / action — near-black replaces purple */
+  --primary: #1a1a1a;
+  --primary-hover: #111111;
+  --primary-light: #f0f0f0;
+
+  /* Text */
+  --text-primary: #111111;
+  --text-secondary: #6b7280;
+
+  /* Surfaces */
   --surface: #ffffff;
-  --surface-secondary: #f8f9fd;
-  --border: #e5e8f0;
-  --border-strong: #d9deeb;
-  --shadow: 0 4px 18px rgba(30, 41, 59, 0.035);
+  --surface-secondary: #f5f5f5;
+  --surface-elevated: #ffffff;
+
+  /* Borders */
+  --border: #e4e4e7;
+  --border-strong: #d1d5db;
+
+  /* Shadow — restrained, no colour tint */
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  /* Focus ring */
+  --focus-ring: rgba(0, 0, 0, 0.18);
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
 }
 
 /* Global */
@@ -40,7 +123,9 @@ html {
 body {
   min-width: 320px;
   min-height: 100vh;
-  background: #f7f8fc;
+  background: #f6f6f6;
+  background-image: radial-gradient(circle, #d1d5db 1px, transparent 1px);
+  background-size: 24px 24px;
   color: var(--text-primary);
 }
 
@@ -63,7 +148,7 @@ button {
   width: 100%;
   min-height: 100vh;
   margin: 0;
-  background: #f7f8fc;
+  background: transparent;
 }
 
 /* Sidebar */
@@ -118,25 +203,25 @@ button {
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background-color 0.18s, color 0.18s, border-color 0.18s;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .nav-item:hover {
   color: var(--primary);
-  background: #f6f3ff;
+  background: #f0f0f0;
 }
 
 .nav-item.active {
   color: var(--primary);
   background: var(--primary-light);
-  border-color: #e6ddff;
+  border-color: #e4e4e7;
   font-weight: 650;
 }
 
 .nav-item:focus-visible,
 .primary-button:focus-visible,
 .secondary-button:focus-visible {
-  outline: 3px solid rgba(118, 81, 245, 0.25);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -164,6 +249,7 @@ button {
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .status-indicator {
@@ -218,9 +304,9 @@ button {
   align-items: center;
   justify-content: center;
   padding: 9px 13px;
-  color: #43348c;
-  background: #f1edff;
-  border: 1px solid #e5ddff;
+  color: #1a1a1a;
+  background: #f0f0f0;
+  border: 1px solid #e4e4e7;
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
@@ -262,13 +348,12 @@ button {
   border: 1px solid var(--border);
   border-radius: 11px;
   box-shadow: var(--shadow);
-  transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .stat-card:hover {
-  border-color: #d8ceff;
-  box-shadow: 0 7px 22px rgba(75, 55, 150, 0.06);
-  transform: translateY(-2px);
+  border-color: #d1d5db;
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.05);
 }
 
 .stat-card h3 {
@@ -284,6 +369,7 @@ button {
   font-size: 29px;
   font-weight: 750;
   letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-description {
@@ -438,7 +524,7 @@ button {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.18s, border-color 0.18s, box-shadow 0.18s;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .primary-button {
@@ -451,7 +537,7 @@ button {
 
 .primary-button:hover {
   background: var(--primary-hover);
-  box-shadow: 0 4px 12px rgba(118, 81, 245, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .primary-button:active {
@@ -510,7 +596,7 @@ button {
 
 .project-form input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(118, 81, 245, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
 }
 
 .form-actions {
@@ -537,12 +623,12 @@ button {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow-wrap: anywhere;
-  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .project-card:hover {
-  border-color: #d6caff;
-  box-shadow: 0 5px 18px rgba(75, 55, 150, 0.07);
+  border-color: #d1d5db;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.05);
   transform: translateY(-2px);
 }
 
@@ -769,8 +855,8 @@ button {
 
 .file-breadcrumb-button {
   padding: 7px 10px;
-  color: #6d4aff;
-  background: #f3efff;
+  color: #374151;
+  background: #f0f0f0;
   border: 1px solid transparent;
   border-radius: 7px;
   cursor: pointer;
@@ -778,7 +864,7 @@ button {
 }
 
 .file-breadcrumb-button:hover {
-  background: #e9e1ff;
+  background: #f0f0f0;
 }
 
 .file-explorer-actions {
@@ -802,7 +888,6 @@ button {
 }
 
 .upload-label:hover {
-  transform: translateY(-1px);
 }
 
 .upload-label.disabled {
@@ -865,9 +950,9 @@ button {
 }
 
 .file-item.selected {
-  color: #5b35d5;
+  color: #374151;
   background: #eee8ff;
-  border-color: #ddd1ff;
+  border-color: #e4e4e7;
 }
 
 .file-item-icon {
@@ -879,6 +964,7 @@ button {
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: 13px;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 .file-item-size {
@@ -922,7 +1008,7 @@ button {
   background: #111827;
   border: 1px solid #263244;
   border-radius: 10px;
-  font-family: Consolas, "Courier New", monospace;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 13px;
   line-height: 1.8;
   tab-size: 2;
@@ -1026,7 +1112,7 @@ button {
   padding: 22px;
   overflow: hidden;
 
-  background: linear-gradient(145deg, #ffffff 0%, #faf9ff 100%);
+  background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
   border: 1px solid #e8e7f3;
   border-radius: 15px;
 
@@ -1050,8 +1136,8 @@ button {
 
   background: linear-gradient(
     90deg,
-    #7657ff,
-    #b4a2ff
+    #1a1a1a,
+    #9ca3af
   );
 
   border-radius: 0 0 5px 5px;
@@ -1061,8 +1147,8 @@ button {
 
 .project-card:hover {
   transform: translateY(-3px);
-  border-color: #d9d0ff;
-  box-shadow: 0 12px 28px rgba(83, 61, 170, 0.09);
+  border-color: #d1d5db;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.07);
 }
 
 .project-card:hover::before {
@@ -1112,9 +1198,9 @@ button {
   min-height: 39px;
   padding: 0 15px;
 
-  color: #6847e8;
-  background: #f3efff;
-  border: 1px solid #e5dcff;
+  color: #111111;
+  background: #f0f0f0;
+  border: 1px solid #e4e4e7;
   border-radius: 9px;
 
   font-size: 12px;
@@ -1131,9 +1217,8 @@ button {
 
 .project-card .secondary-button:hover {
   color: #ffffff;
-  background: #7657ff;
-  border-color: #7657ff;
-  transform: translateY(-1px);
+  background: #1a1a1a;
+  border-color: #1a1a1a;
 }
 
 .project-card .secondary-button:active {
@@ -1182,8 +1267,8 @@ button {
 
 .project-form input:focus {
   outline: none;
-  border-color: #9b86ff;
-  box-shadow: 0 0 0 3px rgba(118, 87, 255, 0.11);
+  border-color: #6b7280;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
 }
 
 /* Responsive adjustments */
@@ -1264,11 +1349,11 @@ button {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  color: #b7a5ff;
-  background: rgba(118, 87, 255, 0.14);
-  border: 1px solid rgba(118, 87, 255, 0.2);
+  color: #9ca3af;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 9px;
-  font-family: Consolas, monospace;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 13px;
   font-weight: 700;
 }
@@ -1296,9 +1381,9 @@ button {
 
 .editor-language {
   padding: 5px 9px;
-  color: #c4b5fd;
-  background: rgba(118, 87, 255, 0.12);
-  border: 1px solid rgba(118, 87, 255, 0.2);
+  color: #9ca3af;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 6px;
   font-size: 10px;
   font-weight: 600;
@@ -1306,7 +1391,7 @@ button {
 }
 
 .editor-saving {
-  color: #c4b5fd;
+  color: #9ca3af;
   font-size: 11px;
 }
 
@@ -1336,10 +1421,10 @@ button {
   width: 48px;
   height: 48px;
   margin-bottom: 14px;
-  color: #b7a5ff;
-  background: rgba(118, 87, 255, 0.13);
+  color: #9ca3af;
+  background: rgba(0, 0, 0, 0.06);
   border-radius: 12px;
-  font-family: Consolas, monospace;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 17px;
 }
 
@@ -1446,13 +1531,12 @@ button {
   color: #fff;
   background: var(--primary);
   border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(118, 81, 245, 0.16);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .analyze-project-button:hover:not(:disabled) {
   background: var(--primary-hover);
-  box-shadow: 0 6px 16px rgba(118, 81, 245, 0.23);
-  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
 .analysis-back-button {
@@ -1463,7 +1547,7 @@ button {
 
 .analysis-back-button:hover:not(:disabled) {
   background: var(--surface-secondary);
-  border-color: #c9c1ef;
+  border-color: #d1d5db;
 }
 
 .analyze-project-button:disabled,
@@ -1476,7 +1560,7 @@ button {
 
 .analyze-project-button:focus-visible,
 .analysis-back-button:focus-visible {
-  outline: 3px solid rgba(118, 81, 245, 0.25);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 
@@ -1620,9 +1704,8 @@ button {
 }
 
 .analysis-stat-card:hover {
-  border-color: #d8ceff;
-  box-shadow: 0 7px 22px rgba(75, 55, 150, 0.06);
-  transform: translateY(-2px);
+  border-color: #d1d5db;
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.05);
 }
 
 .analysis-stat-card > span {
@@ -1640,6 +1723,7 @@ button {
   font-weight: 750;
   letter-spacing: -1px;
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
 .analysis-stat-card.warning-stat > strong {
@@ -1715,7 +1799,7 @@ button {
 
 .finding-top-row > code {
   color: var(--text-secondary);
-  font-family: Consolas, "Courier New", monospace;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
   overflow-wrap: anywhere;
 }
@@ -1746,9 +1830,9 @@ button {
 }
 
 .severity-info {
-  color: #5b35d5;
-  background: #f3efff;
-  border-color: #e5dcff;
+  color: #374151;
+  background: #f0f0f0;
+  border-color: #e4e4e7;
 }
 
 .analysis-finding h4 {
@@ -1782,7 +1866,7 @@ button {
   background: #171b29;
   border: 1px solid #292f42;
   border-radius: 8px;
-  font-family: Consolas, "Courier New", monospace;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
   line-height: 1.7;
   white-space: pre;
@@ -1927,14 +2011,14 @@ button {
   align-items: center;
   justify-content: center;
   height: 60vh;
-  color: var(--text-muted, #8b949e);
+  color: var(--text-secondary);
   text-align: center;
   gap: 0.5rem;
 }
 
 .coming-soon h2 {
   font-size: 1.5rem;
-  color: var(--text-secondary, #c9d1d9);
+  color: var(--text-primary);
 }
 
 .coming-soon p {
@@ -1945,14 +2029,14 @@ button {
 .action-card.interactive,
 .project-card.interactive {
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .action-card.interactive:hover,
 .project-card.interactive:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(30, 41, 59, 0.08);
-  border-color: var(--primary, #7651f5);
+  border-color: var(--primary, #1a1a1a);
 }
 
 /* Settings View Styles */
@@ -2021,7 +2105,7 @@ button {
 .settings-form .checkbox-group input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: var(--primary, #7651f5);
+  accent-color: var(--primary, #1a1a1a);
 }
 
 .settings-alert {
@@ -2101,7 +2185,7 @@ button {
 }
 
 .limit-value.protected {
-  color: #0284c7;
+  color: var(--text-primary);
 }
 
 .settings-disclaimer {
@@ -2192,6 +2276,7 @@ button {
 .history-timestamp {
   font-size: 0.85rem;
   color: var(--text-secondary, #68738a);
+  font-variant-numeric: tabular-nums;
 }
 
 .history-metrics-row {
@@ -2436,9 +2521,9 @@ button {
 }
 
 .filter-tabs .tab.active {
-  background: var(--primary, #7651f5);
+  background: var(--primary, #1a1a1a);
   color: #ffffff;
-  border-color: var(--primary, #7651f5);
+  border-color: var(--primary, #1a1a1a);
 }
 
 .findings-list {
@@ -2459,14 +2544,14 @@ button {
 }
 
 .finding-card:hover {
-  border-color: var(--primary, #7651f5);
-  background: #faf9ff;
+  border-color: var(--primary, #1a1a1a);
+  background: #fafafa;
 }
 
 .finding-card.selected {
-  border-color: var(--primary, #7651f5);
-  background: #f5f3ff;
-  box-shadow: 0 0 0 1px var(--primary, #7651f5);
+  border-color: var(--primary, #1a1a1a);
+  background: #fafafa;
+  box-shadow: 0 0 0 1px var(--primary, #1a1a1a);
 }
 
 .finding-card .finding-header {
@@ -2494,6 +2579,7 @@ button {
   justify-content: space-between;
   font-size: 0.75rem;
   color: var(--text-secondary, #68738a);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 .finding-card .finding-preview {
@@ -2521,21 +2607,21 @@ button {
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0.85rem;
-  background: #fdf4ff;
-  border: 1px solid #f0abfc;
+  background: #fafafa;
+  border: 1px solid var(--border);
   border-radius: 6px;
   margin-bottom: 1rem;
   font-size: 0.85rem;
-  color: #701a75;
+  color: var(--text-primary);
 }
 
 .file-badge {
   font-size: 0.8rem;
   padding: 0.2rem 0.5rem;
-  background: var(--surface-secondary, #f8f9fd);
-  border: 1px solid var(--border, #e5e8f0);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--text-secondary, #68738a);
+  color: var(--text-secondary);
 }
 
 @media (max-width: 900px) {

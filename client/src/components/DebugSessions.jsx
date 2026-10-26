@@ -235,7 +235,7 @@ function DebugSessions({ projects = [] }) {
 
         {activeProject && activeProject.upload_status !== "uploaded" && (
           <p className="notice-text">
-            ⚠️ This project has no uploaded files. Go to <strong>Projects</strong> to upload a ZIP archive first.
+            Note: This project has no uploaded files. Go to <strong>Projects</strong> to upload a ZIP archive first.
           </p>
         )}
 
@@ -319,7 +319,7 @@ function DebugSessions({ projects = [] }) {
 
               {filteredFindings.length === 0 ? (
                 <div className="empty-findings">
-                  <p>🎉 No issues found for filter: {severityFilter}</p>
+                  <p>No issues found for filter: {severityFilter}</p>
                 </div>
               ) : (
                 <div className="findings-list">
